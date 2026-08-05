@@ -9,9 +9,10 @@ const clientEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url({
     message: "NEXT_PUBLIC_SUPABASE_URL must be a valid URL",
   }),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z
+  /** Modern publishable key (sb_publishable_...), successor to `anon`. */
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
     .string()
-    .min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+    .min(1, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is required"),
 });
 
 /**
@@ -22,9 +23,8 @@ const serverEnvSchema = z.object({
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required (Supabase pooled connection string)"),
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  /** Modern secret key (sb_secret_...), successor to `service_role`. */
+  SUPABASE_SECRET_KEY: z.string().min(1, "SUPABASE_SECRET_KEY is required"),
 });
 
 function formatEnvError(error: z.ZodError): string {
@@ -37,7 +37,8 @@ function formatEnvError(error: z.ZodError): string {
 function parseClientEnv(): z.infer<typeof clientEnvSchema> {
   const result = clientEnvSchema.safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));
@@ -58,7 +59,7 @@ export function getServerEnv(): z.infer<typeof serverEnvSchema> {
   }
   const result = serverEnvSchema.safeParse({
     DATABASE_URL: process.env.DATABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));
