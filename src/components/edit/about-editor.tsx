@@ -16,6 +16,50 @@ import {
   inputClass,
 } from "./form-fields";
 
+function PhotoInput({ currentUrl }: { currentUrl: string | null }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Object URLs leak without revocation on replacement/unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const shownUrl = previewUrl ?? currentUrl;
+
+  return (
+    <div className="flex items-center gap-4">
+      {shownUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={shownUrl}
+          alt="Profile photo preview"
+          className="h-16 w-16 rounded-full border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+      ) : null}
+      <div className="space-y-2">
+        <input
+          type="file"
+          name="photo"
+          accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            setPreviewUrl(file ? URL.createObjectURL(file) : null);
+          }}
+          className="block text-sm text-zinc-600 file:mr-3 file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-50 dark:text-zinc-400 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-300"
+        />
+        {currentUrl && !previewUrl ? (
+          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <input type="checkbox" name="removePhoto" className="h-3.5 w-3.5" />
+            Remove current photo
+          </label>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function AboutForm({
   about,
   onClose,
@@ -61,15 +105,8 @@ function AboutForm({
           className={inputClass}
         />
       </Field>
-      <Field label="Photo URL" htmlFor="about-photo">
-        <input
-          id="about-photo"
-          name="photoUrl"
-          type="url"
-          defaultValue={about?.photoUrl ?? ""}
-          placeholder="https://…"
-          className={inputClass}
-        />
+      <Field label="Photo" htmlFor="about-photo">
+        <PhotoInput currentUrl={about?.photoUrl ?? null} />
       </Field>
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">

@@ -1,12 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { about, contact, experiences, media, projects } from "@/db/schema";
-import { requireEditor } from "@/lib/auth";
+import { deleteImageByUrl, uploadImage } from "@/lib/storage";
+import { runMutation } from "./mutation";
 import {
   firstIssue,
   idSchema,
@@ -17,28 +16,6 @@ import {
   type ActionResult,
 } from "./validation";
 
-/**
- * Shared wrapper: editor check, error normalization, page revalidation.
- * Every mutation on the profile page flows through here.
- */
-async function runMutation(
-  mutate: () => Promise<void>,
-): Promise<ActionResult> {
-  try {
-    await requireEditor();
-    await mutate();
-    revalidatePath("/");
-    return { ok: true };
-  } catch (error: unknown) {
-    console.error("Profile mutation failed:", error);
-    const message =
-      error instanceof Error && error.message.startsWith("Unauthorized")
-        ? "You do not have edit access."
-        : "Something went wrong saving your changes.";
-    return { ok: false, error: message };
-  }
-}
-
 export async function saveAbout(
   _prev: ActionResult | null,
   formData: FormData,
@@ -47,14 +24,32 @@ export async function saveAbout(
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
   return runMutation(async () => {
-    const existing = await db.select({ id: about.id }).from(about).limit(1);
+    const existing = await db
+      .select({ id: about.id, photoUrl: about.photoUrl })
+      .from(about)
+      .limit(1);
+    const currentPhotoUrl = existing[0]?.photoUrl ?? null;
+
+    // Photo: new upload wins, then explicit removal, else keep current.
+    const photoFile = formData.get("photo");
+    const removePhoto = formData.get("removePhoto") === "on";
+    let photoUrl = currentPhotoUrl;
+    if (photoFile instanceof File && photoFile.size > 0) {
+      photoUrl = await uploadImage(photoFile, "about");
+      await deleteImageByUrl(currentPhotoUrl);
+    } else if (removePhoto) {
+      photoUrl = null;
+      await deleteImageByUrl(currentPhotoUrl);
+    }
+
+    const values = { ...parsed.data, photoUrl };
     if (existing[0]) {
       await db
         .update(about)
-        .set({ ...parsed.data, updatedAt: new Date() })
+        .set({ ...values, updatedAt: new Date() })
         .where(eq(about.id, existing[0].id));
     } else {
-      await db.insert(about).values(parsed.data);
+      await db.insert(about).values(values);
     }
   });
 }
@@ -114,14 +109,31 @@ export async function deleteExperience(rawId: string): Promise<ActionResult> {
   if (!id.success) return { ok: false, error: "Invalid experience id" };
 
   return runMutation(async () => {
-    // media has no FK (polymorphic owner) — clean up explicitly.
-    await db
-      .delete(media)
-      .where(
-        and(eq(media.ownerType, "experience"), eq(media.ownerId, id.data)),
-      );
+    await deleteOwnedMedia("experience", id.data);
     await db.delete(experiences).where(eq(experiences.id, id.data));
   });
+}
+
+/**
+ * media has no FK (polymorphic owner) — remove rows AND their uploaded
+ * storage objects when a parent entry is deleted.
+ */
+async function deleteOwnedMedia(
+  ownerType: "experience" | "project",
+  ownerId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ kind: media.kind, url: media.url })
+    .from(media)
+    .where(and(eq(media.ownerType, ownerType), eq(media.ownerId, ownerId)));
+  await Promise.all(
+    rows
+      .filter((row) => row.kind === "image")
+      .map((row) => deleteImageByUrl(row.url)),
+  );
+  await db
+    .delete(media)
+    .where(and(eq(media.ownerType, ownerType), eq(media.ownerId, ownerId)));
 }
 
 export async function createProject(
@@ -159,9 +171,7 @@ export async function deleteProject(rawId: string): Promise<ActionResult> {
   if (!id.success) return { ok: false, error: "Invalid project id" };
 
   return runMutation(async () => {
-    await db
-      .delete(media)
-      .where(and(eq(media.ownerType, "project"), eq(media.ownerId, id.data)));
+    await deleteOwnedMedia("project", id.data);
     await db.delete(projects).where(eq(projects.id, id.data));
   });
 }

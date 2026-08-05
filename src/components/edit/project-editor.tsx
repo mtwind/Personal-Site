@@ -20,6 +20,7 @@ import {
   SubmitButton,
   inputClass,
 } from "./form-fields";
+import { MediaEditor } from "./media-editor";
 
 interface ProjectFormProps {
   project: ProjectWithRelations | null;
@@ -131,6 +132,7 @@ function ProjectItem({ project }: { project: ProjectWithRelations }) {
         </button>
         <FormError message={deleteError} />
       </div>
+      <MediaEditor ownerType="project" ownerId={project.id} items={project.media} />
     </div>
   );
 }

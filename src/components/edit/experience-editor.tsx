@@ -20,6 +20,7 @@ import {
   SubmitButton,
   inputClass,
 } from "./form-fields";
+import { MediaEditor } from "./media-editor";
 
 interface ExperienceFormProps {
   exp: ExperienceWithRelations | null;
@@ -131,6 +132,13 @@ function ExperienceItem({ exp }: { exp: ExperienceWithRelations }) {
           {isDeleting ? "Deleting…" : "Delete"}
         </button>
         <FormError message={deleteError} />
+      </div>
+      <div className="pl-14">
+        <MediaEditor
+          ownerType="experience"
+          ownerId={exp.id}
+          items={exp.media}
+        />
       </div>
     </div>
   );

@@ -24,7 +24,19 @@ export const aboutSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   headline: z.string().max(200),
   body: z.string().max(5000),
-  photoUrl: z.url("Photo must be a valid URL").nullable(),
+});
+
+export const mediaLinkSchema = z.object({
+  ownerType: z.enum(["experience", "project"]),
+  ownerId: z.uuid(),
+  url: z.url("Link must be a valid URL"),
+  caption: z.string().max(200).nullable(),
+});
+
+export const mediaImageSchema = z.object({
+  ownerType: z.enum(["experience", "project"]),
+  ownerId: z.uuid(),
+  caption: z.string().max(200).nullable(),
 });
 
 export const contactSchema = z.object({
@@ -63,7 +75,23 @@ export function parseAboutForm(formData: FormData) {
     name: requiredString(formData.get("name")),
     headline: requiredString(formData.get("headline")),
     body: requiredString(formData.get("body")),
-    photoUrl: emptyToNull(formData.get("photoUrl")),
+  });
+}
+
+export function parseMediaLinkForm(formData: FormData) {
+  return mediaLinkSchema.safeParse({
+    ownerType: requiredString(formData.get("ownerType")),
+    ownerId: requiredString(formData.get("ownerId")),
+    url: requiredString(formData.get("url")),
+    caption: emptyToNull(formData.get("caption")),
+  });
+}
+
+export function parseMediaImageForm(formData: FormData) {
+  return mediaImageSchema.safeParse({
+    ownerType: requiredString(formData.get("ownerType")),
+    ownerId: requiredString(formData.get("ownerId")),
+    caption: emptyToNull(formData.get("caption")),
   });
 }
 
