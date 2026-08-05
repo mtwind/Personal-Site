@@ -32,9 +32,9 @@ function buildLinks(contact: Contact): ContactLink[] {
   }
   if (contact.resumeUrl) {
     links.push({
-      label: "Resume",
+      label: "Résumé",
       href: contact.resumeUrl,
-      display: "Download resume (PDF)",
+      display: "Download résumé (PDF)",
     });
   }
   return links;
@@ -43,32 +43,30 @@ function buildLinks(contact: Contact): ContactLink[] {
 export function ContactView({ contact }: { contact: Contact | null }) {
   const links = contact ? buildLinks(contact) : [];
 
+  if (links.length === 0) {
+    return <EmptyState message="No contact details added yet." />;
+  }
+
   return (
-    <>
-      {links.length > 0 ? (
-        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
-          {links.map((link) => (
-            <div key={link.label} className="flex items-baseline gap-3">
-              <dt className="w-20 shrink-0 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                {link.label}
-              </dt>
-              <dd className="min-w-0">
-                <a
-                  href={link.href}
-                  target={link.href.startsWith("http") ? "_blank" : undefined}
-                  rel="noopener noreferrer"
-                  className="break-all text-sm text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
-                >
-                  {link.display}
-                </a>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <EmptyState message="No contact details added yet." />
-      )}
-    </>
+    <dl className="mx-auto grid max-w-lg gap-x-10 gap-y-4 sm:grid-cols-2">
+      {links.map((link) => (
+        <div key={link.label} className="text-center sm:text-left">
+          <dt className="font-sans text-[10.5px] font-semibold tracking-[0.22em] text-(--dim) uppercase">
+            {link.label}
+          </dt>
+          <dd className="mt-0.5 min-w-0">
+            <a
+              href={link.href}
+              target={link.href.startsWith("http") ? "_blank" : undefined}
+              rel="noopener noreferrer"
+              className="text-[15px] break-all text-(--title) underline-offset-3 transition-colors duration-200 hover:text-(--accent) hover:underline"
+            >
+              {link.display}
+            </a>
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

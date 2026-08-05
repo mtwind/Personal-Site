@@ -8,34 +8,32 @@ export function ProjectCard({ project }: { project: ProjectWithRelations }) {
   const dateRange = formatDateRange(project.startDate, project.endDate);
 
   return (
-    <article className="rounded-xl border border-zinc-200 p-5 dark:border-zinc-800">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-          {project.name}
-        </h3>
-        {dateRange ? (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
-            {dateRange}
-          </span>
-        ) : null}
-      </div>
-      {project.repoUrl ? (
-        <a
-          href={project.repoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-1 inline-block break-all text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-        >
-          {project.repoUrl.replace(/^https?:\/\//, "")}
-        </a>
+    <article className="group -mx-2 rounded-md px-4 py-3 transition-[background-color,transform] duration-300 hover:-translate-y-1 hover:bg-(--hover-bg)">
+      <h3 className="text-[19px] font-normal text-(--title) transition-colors duration-300 group-hover:text-(--accent)">
+        {project.name}
+      </h3>
+      {dateRange ? (
+        <div className="mt-0.5 font-sans text-[10.5px] tracking-[0.16em] text-(--dim) uppercase">
+          {dateRange}
+        </div>
       ) : null}
       {project.bullets.length > 0 && (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6">
           {project.bullets.map((bullet, i) => (
             <li key={i}>{bullet}</li>
           ))}
         </ul>
       )}
+      {project.repoUrl ? (
+        <a
+          href={project.repoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-block font-sans text-xs break-all text-(--accent) underline-offset-2 hover:underline"
+        >
+          {project.repoUrl.replace(/^https?:\/\//, "")} ↗
+        </a>
+      ) : null}
       <SkillBadgeList skills={project.skills} />
       <MediaList items={project.media} />
     </article>
@@ -50,7 +48,7 @@ export function ProjectSection({
   return (
     <Section id="projects" title="Projects">
       {projects.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}

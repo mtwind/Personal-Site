@@ -112,13 +112,13 @@ export function CompanySearch({
           />
         </Field>
         {open && results.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-(--line) bg-(--bg-elev) py-1 font-sans shadow-lg">
             {results.map((result) => (
               <li key={result.domain}>
                 <button
                   type="button"
                   onClick={() => selectCompany(result)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-(--text) transition-colors duration-150 hover:bg-(--hover-bg)"
                 >
                   {result.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -132,7 +132,7 @@ export function CompanySearch({
                     <span className="h-5 w-5" />
                   )}
                   <span className="truncate">{result.name}</span>
-                  <span className="ml-auto truncate text-xs text-zinc-400">
+                  <span className="ml-auto truncate text-xs text-(--dim)">
                     {result.domain}
                   </span>
                 </button>
@@ -141,13 +141,13 @@ export function CompanySearch({
           </ul>
         )}
         {status === "unconfigured" && (
-          <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <p className="mt-1 font-sans text-xs text-(--dim)">
             Company autocomplete is off — set BRANDFETCH_CLIENT_ID in
             .env.local and restart the dev server. Manual entry works fine.
           </p>
         )}
         {status === "error" && (
-          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          <p className="mt-1 font-sans text-xs text-(--accent)">
             Company search is unavailable right now — enter the name and
             domain manually.
           </p>

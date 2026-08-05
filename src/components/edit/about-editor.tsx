@@ -7,7 +7,6 @@ import type { ActionResult } from "@/lib/actions/validation";
 import type { About } from "@/lib/profile-data";
 import { MAX_IMAGE_LABEL, isImageTooLarge } from "@/lib/upload-limits";
 import { AboutView } from "@/components/profile/about-section";
-import { Section } from "@/components/profile/section";
 import {
   CancelButton,
   EditButton,
@@ -36,7 +35,7 @@ function PhotoInput({ currentUrl }: { currentUrl: string | null }) {
         <img
           src={shownUrl}
           alt="Profile photo preview"
-          className="h-16 w-16 rounded-full border border-zinc-200 object-cover dark:border-zinc-700"
+          className="h-16 w-16 rounded-full border border-(--line) object-cover"
         />
       ) : null}
       <div className="space-y-2">
@@ -54,10 +53,10 @@ function PhotoInput({ currentUrl }: { currentUrl: string | null }) {
             }
             setPreviewUrl(file ? URL.createObjectURL(file) : null);
           }}
-          className="block text-sm text-zinc-600 file:mr-3 file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-50 dark:text-zinc-400 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-300"
+          className="block font-sans text-sm text-(--dim) file:mr-3 file:rounded-md file:border file:border-(--line) file:bg-(--bg-elev) file:px-3 file:py-1.5 file:font-sans file:text-sm file:font-medium file:text-(--text) hover:file:bg-(--hover-bg)"
         />
         {currentUrl && !previewUrl ? (
-          <label className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <label className="flex items-center gap-2 font-sans text-xs text-(--dim)">
             <input type="checkbox" name="removePhoto" className="h-3.5 w-3.5" />
             Remove current photo
           </label>
@@ -128,18 +127,20 @@ export function EditableAbout({ about }: { about: About | null }) {
   const [editing, setEditing] = useState(false);
 
   return (
-    <Section id="about" title="About">
+    <section id="about" className="scroll-mt-24 pt-12 pb-4">
       {editing ? (
         <AboutForm about={about} onClose={() => setEditing(false)} />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <AboutView about={about} />
-          <EditButton
-            label={about ? "Edit about" : "Add about"}
-            onClick={() => setEditing(true)}
-          />
+          <div className="text-center">
+            <EditButton
+              label={about ? "Edit about" : "Add about"}
+              onClick={() => setEditing(true)}
+            />
+          </div>
         </div>
       )}
-    </Section>
+    </section>
   );
 }

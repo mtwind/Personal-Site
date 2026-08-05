@@ -15,7 +15,7 @@ export function ThemeToggle() {
       type="button"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
       aria-label="Toggle light/dark mode"
-      className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+      className="rounded-full border border-(--line) p-1.5 text-(--dim) transition-colors duration-200 hover:border-(--accent) hover:bg-(--hover-bg) hover:text-(--accent)"
     >
       {/* Sun — shown in dark mode (click = go light) */}
       <svg

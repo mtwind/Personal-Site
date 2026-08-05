@@ -95,7 +95,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
             return (
               <span
                 key={selection.name}
-                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="inline-flex items-center gap-1.5 rounded-full border border-(--line) bg-(--hover-bg) px-2.5 py-1 font-sans text-xs font-medium text-(--text)"
               >
                 {icon ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -106,7 +106,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
                   type="button"
                   onClick={() => removeSelection(selection.name)}
                   aria-label={`Remove ${selection.name}`}
-                  className="ml-0.5 text-zinc-400 hover:text-red-500"
+                  className="ml-0.5 text-(--dim) transition-colors duration-200 hover:text-(--danger)"
                 >
                   ✕
                 </button>
@@ -127,7 +127,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
           className={inputClass}
         />
         {showDropdown && (
-          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-md border border-(--line) bg-(--bg-elev) py-1 font-sans shadow-lg">
             {results.map((entry) => {
               const icon = iconUrl(
                 entry.source,
@@ -149,7 +149,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
                         variant: entry.variant,
                       })
                     }
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-(--text) transition-colors duration-150 hover:bg-(--hover-bg)"
                   >
                     {icon ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -172,7 +172,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
                     variant: null,
                   })
                 }
-                className="w-full px-3 py-1.5 text-left text-sm text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                className="w-full px-3 py-1.5 text-left text-sm text-(--dim) transition-colors duration-150 hover:bg-(--hover-bg)"
               >
                 + Add “{query.trim()}” as custom skill
               </button>

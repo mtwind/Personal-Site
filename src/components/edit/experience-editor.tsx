@@ -43,7 +43,7 @@ function ExperienceForm({ exp, onClose }: ExperienceFormProps) {
   return (
     <form
       action={formAction}
-      className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
+      className="space-y-4 rounded-xl border border-(--line) bg-(--hover-bg) p-4"
     >
       {exp ? <input type="hidden" name="id" value={exp.id} /> : null}
       <CompanySearch
@@ -122,19 +122,19 @@ function ExperienceItem({ exp }: { exp: ExperienceWithRelations }) {
   return (
     <div className="group relative">
       <ExperienceCard exp={exp} />
-      <div className="mt-2 flex items-center gap-2 pl-14">
+      <div className="mt-2 flex items-center gap-2 sm:pl-[170px]">
         <EditButton label="Edit" onClick={() => setEditing(true)} />
         <button
           type="button"
           onClick={handleDelete}
           disabled={isDeleting}
-          className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+          className="rounded-md border border-(--danger) px-2.5 py-1 font-sans text-xs font-medium text-(--danger) transition-colors duration-200 hover:bg-red-500/10 disabled:opacity-50"
         >
           {isDeleting ? "Deleting…" : "Delete"}
         </button>
         <FormError message={deleteError} />
       </div>
-      <div className="pl-14">
+      <div className="sm:pl-[170px]">
         <MediaEditor
           ownerType="experience"
           ownerId={exp.id}

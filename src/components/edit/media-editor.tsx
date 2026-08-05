@@ -49,7 +49,7 @@ function UploadImageButton() {
         type="button"
         disabled={pending}
         onClick={() => inputRef.current?.click()}
-        className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+        className="rounded-md border border-(--line) px-2.5 py-1 font-sans text-xs font-medium text-(--text) transition-colors duration-200 hover:bg-(--hover-bg) disabled:opacity-50"
       >
         {pending ? "Uploading…" : "↑ Upload image"}
       </button>
@@ -75,11 +75,11 @@ function MediaItemChip({ item }: { item: MediaItem }) {
         <img
           src={item.url}
           alt={item.caption ?? ""}
-          className={`h-16 rounded-md border border-zinc-200 object-cover dark:border-zinc-700 ${isDeleting ? "opacity-40" : ""}`}
+          className={`h-16 rounded-md border border-(--line) object-cover ${isDeleting ? "opacity-40" : ""}`}
         />
       ) : (
         <span
-          className={`inline-flex max-w-48 items-center truncate rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 ${isDeleting ? "opacity-40" : ""}`}
+          className={`inline-flex max-w-48 items-center truncate rounded-md border border-(--line) px-2 py-1 font-sans text-xs text-(--text) ${isDeleting ? "opacity-40" : ""}`}
         >
           {item.caption ?? item.url}
         </span>
@@ -89,7 +89,7 @@ function MediaItemChip({ item }: { item: MediaItem }) {
         onClick={handleDelete}
         disabled={isDeleting}
         aria-label="Remove media"
-        className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-zinc-700 text-[10px] leading-none text-white hover:bg-red-600 dark:bg-zinc-300 dark:text-zinc-900 dark:hover:bg-red-400"
+        className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-(--dim) text-[10px] leading-none text-(--bg) transition-colors duration-200 hover:bg-(--danger)"
       >
         ✕
       </button>

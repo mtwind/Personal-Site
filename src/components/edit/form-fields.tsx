@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 export const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  "w-full rounded-md border border-(--line) bg-(--bg-elev) px-3 py-1.5 font-sans text-sm text-(--title) placeholder:text-(--dim) focus:border-(--accent) focus:outline-none";
 
 interface FieldProps {
   label: string;
@@ -17,7 +17,7 @@ export function Field({ label, htmlFor, children }: FieldProps) {
     <div className="space-y-1">
       <label
         htmlFor={htmlFor}
-        className="block text-xs font-medium text-zinc-600 dark:text-zinc-400"
+        className="block font-sans text-[10.5px] font-semibold tracking-[0.14em] text-(--dim) uppercase"
       >
         {label}
       </label>
@@ -71,7 +71,7 @@ export function BulletsInput({
             type="button"
             onClick={() => removeRow(row.key)}
             aria-label="Remove bullet"
-            className="mt-1 rounded p-1 text-zinc-400 hover:text-red-500"
+            className="mt-1 rounded p-1 text-(--dim) transition-colors duration-200 hover:text-(--danger)"
           >
             ✕
           </button>
@@ -81,7 +81,7 @@ export function BulletsInput({
         <button
           type="button"
           onClick={addRow}
-          className="text-xs font-medium text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+          className="font-sans text-xs font-medium text-(--accent) underline-offset-2 hover:underline"
         >
           + Add bullet
         </button>
@@ -96,7 +96,7 @@ export function SubmitButton({ children }: { children: React.ReactNode }) {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+      className="rounded-md bg-(--accent) px-4 py-1.5 font-sans text-sm font-semibold text-(--bg) transition-opacity duration-200 hover:opacity-85 disabled:opacity-50"
     >
       {pending ? "Saving…" : children}
     </button>
@@ -108,7 +108,7 @@ export function CancelButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md border border-zinc-300 px-4 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+      className="rounded-md border border-(--line) px-4 py-1.5 font-sans text-sm text-(--text) transition-colors duration-200 hover:bg-(--hover-bg)"
     >
       Cancel
     </button>
@@ -118,7 +118,7 @@ export function CancelButton({ onClick }: { onClick: () => void }) {
 export function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
-    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+    <p role="alert" className="font-sans text-sm text-(--danger)">
       {message}
     </p>
   );
@@ -134,7 +134,7 @@ export function EditButton({ label, onClick }: EditButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+      className="rounded-md border border-(--accent) px-2.5 py-1 font-sans text-xs font-medium text-(--accent) transition-colors duration-200 hover:bg-(--hover-bg)"
     >
       {label}
     </button>

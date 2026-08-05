@@ -8,38 +8,28 @@ export function ExperienceCard({ exp }: { exp: ExperienceWithRelations }) {
   const dateRange = formatDateRange(exp.startDate, exp.endDate);
 
   return (
-    <article className="flex gap-4">
-      {exp.companyLogoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={exp.companyLogoUrl}
-          alt=""
-          aria-hidden
-          className="mt-1 h-10 w-10 shrink-0 rounded-md border border-zinc-200 object-contain dark:border-zinc-700"
-        />
-      ) : (
-        <div
-          aria-hidden
-          className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {exp.companyName.charAt(0)}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+    <article className="-mx-4 grid gap-x-5 gap-y-1 rounded-md border-l-2 border-l-transparent px-4 py-3 transition-[background-color,border-color,transform] duration-300 hover:translate-x-1.5 hover:border-l-(--accent) hover:bg-(--hover-bg) sm:grid-cols-[150px_1fr]">
+      <div className="pt-1 font-sans text-[11.5px] text-(--dim)">
+        {dateRange}
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-[19px] font-normal text-(--title) italic">
           {exp.title}
         </h3>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {exp.companyName}
-          {dateRange ? (
-            <span className="text-zinc-400 dark:text-zinc-500">
-              {" "}
-              · {dateRange}
-            </span>
+        <div className="mt-0.5 mb-2 flex items-center gap-2 font-sans text-[11px] font-semibold tracking-[0.18em] text-(--accent) uppercase">
+          {exp.companyLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={exp.companyLogoUrl}
+              alt=""
+              aria-hidden
+              className="h-4 w-4 rounded-sm object-contain"
+            />
           ) : null}
-        </p>
+          {exp.companyName}
+        </div>
         {exp.bullets.length > 0 && (
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+          <ul className="list-disc space-y-1 pl-5 text-[14.5px] leading-6">
             {exp.bullets.map((bullet, i) => (
               <li key={i}>{bullet}</li>
             ))}
@@ -58,9 +48,9 @@ export function ExperienceSection({
   experiences: ExperienceWithRelations[];
 }) {
   return (
-    <Section id="experience" title="Work Experience">
+    <Section id="experience" title="Experience">
       {experiences.length > 0 ? (
-        <div className="space-y-10">
+        <div className="space-y-3">
           {experiences.map((exp) => (
             <ExperienceCard key={exp.id} exp={exp} />
           ))}

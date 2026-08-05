@@ -44,7 +44,7 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
   return (
     <form
       action={formAction}
-      className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
+      className="space-y-4 rounded-xl border border-(--line) bg-(--hover-bg) p-4"
     >
       {project ? <input type="hidden" name="id" value={project.id} /> : null}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -130,7 +130,7 @@ function ProjectItem({ project }: { project: ProjectWithRelations }) {
           type="button"
           onClick={handleDelete}
           disabled={isDeleting}
-          className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+          className="rounded-md border border-(--danger) px-2.5 py-1 font-sans text-xs font-medium text-(--danger) transition-colors duration-200 hover:bg-red-500/10 disabled:opacity-50"
         >
           {isDeleting ? "Deleting…" : "Delete"}
         </button>

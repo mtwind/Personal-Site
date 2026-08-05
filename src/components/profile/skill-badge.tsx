@@ -1,17 +1,14 @@
 import { skillIconUrl, type Skill } from "@/lib/skill-icon";
 
 /**
- * Small pill showing a skill's icon + name.
- *
- * Icons are tiny remote SVGs rendered with a plain <img> — next/image
- * adds no value for SVGs (no raster optimization) and would require
- * dangerouslyAllowSVG.
+ * Small pill showing a skill's icon + name, in the editorial palette.
+ * Icons are tiny remote SVGs rendered with a plain <img>.
  */
 export function SkillBadge({ skill }: { skill: Skill }) {
   const iconUrl = skillIconUrl(skill);
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-(--line) bg-(--hover-bg) px-2.5 py-1 font-sans text-[11px] font-medium tracking-wide text-(--text)">
       {iconUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={iconUrl} alt="" aria-hidden className="h-3.5 w-3.5" />

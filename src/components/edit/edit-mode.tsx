@@ -51,16 +51,16 @@ export function EditModeToggle() {
       role="switch"
       aria-checked={editMode}
       onClick={() => setEditMode(!editMode)}
-      className="flex items-center gap-2 text-xs font-medium text-zinc-600 dark:text-zinc-400"
+      className="flex items-center gap-2 font-sans text-[11px] font-medium tracking-[0.14em] text-(--dim) uppercase"
     >
-      Edit mode
+      Edit
       <span
-        className={`relative h-5 w-9 rounded-full transition-colors ${
-          editMode ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-700"
+        className={`relative h-5 w-9 rounded-full transition-colors duration-200 ${
+          editMode ? "bg-(--accent)" : "bg-(--line)"
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-(--bg-elev) shadow transition-transform duration-200 ${
             editMode ? "translate-x-4.5" : "translate-x-0.5"
           }`}
         />

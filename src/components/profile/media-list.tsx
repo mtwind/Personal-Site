@@ -18,7 +18,7 @@ export function MediaList({ items }: { items: MediaItem[] }) {
               src={item.url}
               alt={item.caption ?? ""}
               loading="lazy"
-              className="h-24 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+              className="h-24 rounded-md border border-(--line) object-cover"
             />
           ))}
         </div>
@@ -31,7 +31,7 @@ export function MediaList({ items }: { items: MediaItem[] }) {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-md border border-zinc-200 px-2.5 py-1 text-xs text-zinc-600 underline-offset-2 hover:underline dark:border-zinc-700 dark:text-zinc-400"
+                className="inline-flex items-center gap-1 rounded-md border border-(--line) px-2.5 py-1 font-sans text-xs text-(--text) underline-offset-2 transition-colors duration-200 hover:border-(--accent) hover:text-(--accent)"
               >
                 {item.caption ?? item.url}
                 <span aria-hidden>↗</span>

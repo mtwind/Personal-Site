@@ -4,11 +4,11 @@ interface SectionProps {
   children: React.ReactNode;
 }
 
-/** Shared wrapper: anchor target + consistent heading for each page section. */
+/** Shared wrapper: anchor target + centered small-caps gold heading. */
 export function Section({ id, title, children }: SectionProps) {
   return (
-    <section id={id} className="scroll-mt-20 py-12 first:pt-8">
-      <h2 className="mb-6 text-sm font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+    <section id={id} className="scroll-mt-24 py-10">
+      <h2 className="mb-7 text-center font-sans text-[11.5px] font-bold tracking-[0.3em] text-(--accent) uppercase">
         {title}
       </h2>
       {children}
@@ -19,7 +19,7 @@ export function Section({ id, title, children }: SectionProps) {
 /** Placeholder shown when a section has no content yet. */
 export function EmptyState({ message }: { message: string }) {
   return (
-    <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-sm text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+    <p className="rounded-md border border-dashed border-(--line) px-4 py-6 text-center font-sans text-sm text-(--dim) italic">
       {message}
     </p>
   );

@@ -8,7 +8,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       attribute="class"
       defaultTheme="system"
       enableSystem
-      disableTransitionOnChange
+      // No disableTransitionOnChange: globals.css fades themed
+      // properties over .6s, which is the wanted cross-fade effect.
     >
       {children}
     </NextThemesProvider>
