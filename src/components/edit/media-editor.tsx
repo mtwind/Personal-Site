@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { addMediaLink, deleteMedia, uploadMediaImage } from "@/lib/actions/media";
 import type { ActionResult } from "@/lib/actions/validation";
 import type { MediaItem } from "@/lib/profile-data";
+import { MAX_IMAGE_LABEL, isImageTooLarge } from "@/lib/upload-limits";
 import {
   CancelButton,
   EditButton,
@@ -34,9 +35,14 @@ function UploadImageButton() {
         accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
         className="hidden"
         onChange={(event) => {
-          if (event.currentTarget.files?.length) {
-            event.currentTarget.form?.requestSubmit();
+          const file = event.currentTarget.files?.[0];
+          if (!file) return;
+          if (isImageTooLarge(file)) {
+            window.alert(`Image is too large (max ${MAX_IMAGE_LABEL}).`);
+            event.currentTarget.value = "";
+            return;
           }
+          event.currentTarget.form?.requestSubmit();
         }}
       />
       <button

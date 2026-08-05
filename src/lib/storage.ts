@@ -3,10 +3,9 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
 import { clientEnv, getServerEnv } from "@/lib/env";
+import { MAX_IMAGE_BYTES, MAX_IMAGE_LABEL } from "@/lib/upload-limits";
 
 export const MEDIA_BUCKET = "media";
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** MIME → extension allowlist. SVG is deliberately excluded (XSS vector). */
 const ALLOWED_IMAGE_TYPES: Record<string, string> = {
@@ -41,7 +40,7 @@ export async function uploadImage(file: File, prefix: string): Promise<string> {
     );
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    throw new UploadError("Image is too large (max 5 MB).");
+    throw new UploadError(`Image is too large (max ${MAX_IMAGE_LABEL}).`);
   }
 
   const path = `${prefix}/${crypto.randomUUID()}.${extension}`;

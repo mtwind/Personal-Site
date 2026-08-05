@@ -5,6 +5,7 @@ import { useActionState, useEffect, useState } from "react";
 import { saveAbout } from "@/lib/actions/profile";
 import type { ActionResult } from "@/lib/actions/validation";
 import type { About } from "@/lib/profile-data";
+import { MAX_IMAGE_LABEL, isImageTooLarge } from "@/lib/upload-limits";
 import { AboutView } from "@/components/profile/about-section";
 import { Section } from "@/components/profile/section";
 import {
@@ -45,6 +46,12 @@ function PhotoInput({ currentUrl }: { currentUrl: string | null }) {
           accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
+            if (file && isImageTooLarge(file)) {
+              window.alert(`Image is too large (max ${MAX_IMAGE_LABEL}).`);
+              event.currentTarget.value = "";
+              setPreviewUrl(null);
+              return;
+            }
             setPreviewUrl(file ? URL.createObjectURL(file) : null);
           }}
           className="block text-sm text-zinc-600 file:mr-3 file:rounded-md file:border file:border-zinc-300 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-50 dark:text-zinc-400 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-300"
