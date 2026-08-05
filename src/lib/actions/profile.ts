@@ -74,6 +74,20 @@ export async function saveContact(
   });
 }
 
+/**
+ * Keyless logo fallback: when a company has a domain but no logo from
+ * the search API, Google's favicon service gives a decent mark for free.
+ */
+function withLogoFallback<
+  T extends { companyDomain: string | null; companyLogoUrl: string | null },
+>(data: T): T {
+  if (data.companyLogoUrl || !data.companyDomain) return data;
+  return {
+    ...data,
+    companyLogoUrl: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.companyDomain)}&sz=128`,
+  };
+}
+
 export async function createExperience(
   _prev: ActionResult | null,
   formData: FormData,
@@ -82,7 +96,7 @@ export async function createExperience(
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
   return runMutation(async () => {
-    await db.insert(experiences).values(parsed.data);
+    await db.insert(experiences).values(withLogoFallback(parsed.data));
   });
 }
 
@@ -99,7 +113,7 @@ export async function updateExperience(
   return runMutation(async () => {
     await db
       .update(experiences)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...withLogoFallback(parsed.data), updatedAt: new Date() })
       .where(eq(experiences.id, id.data));
   });
 }

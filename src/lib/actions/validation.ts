@@ -49,11 +49,28 @@ export const contactSchema = z.object({
 
 export const experienceSchema = z.object({
   companyName: z.string().min(1, "Company is required").max(200),
+  companyDomain: z
+    .string()
+    .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Invalid company domain")
+    .nullable(),
+  companyLogoUrl: z.url("Invalid logo URL").nullable(),
   title: z.string().min(1, "Title is required").max(200),
   startDate: z.iso.date("Start date is required"),
   endDate: z.iso.date().nullable(),
   bullets: z.array(z.string().max(500)).max(20),
 });
+
+/** "https://www.Stripe.com/about" → "stripe.com"; empty → null. */
+function normalizeDomain(value: FormDataEntryValue | null): string | null {
+  const raw = emptyToNull(value);
+  if (!raw) return null;
+  const bare = raw
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split(/[/?#]/)[0];
+  return bare === "" ? null : bare;
+}
 
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
@@ -108,6 +125,8 @@ export function parseContactForm(formData: FormData) {
 export function parseExperienceForm(formData: FormData) {
   return experienceSchema.safeParse({
     companyName: requiredString(formData.get("companyName")),
+    companyDomain: normalizeDomain(formData.get("companyDomain")),
+    companyLogoUrl: emptyToNull(formData.get("companyLogoUrl")),
     title: requiredString(formData.get("title")),
     startDate: requiredString(formData.get("startDate")),
     endDate: emptyToNull(formData.get("endDate")),

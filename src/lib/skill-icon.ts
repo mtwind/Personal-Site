@@ -4,30 +4,47 @@ import type { InferSelectModel } from "drizzle-orm";
 export type Skill = InferSelectModel<typeof skills>;
 
 /**
- * Resolve the display URL for a skill icon based on its source.
+ * Resolve a display URL for a skill icon.
  *
  * - devicon: full-color SVGs from the Devicon CDN
  * - simple-icons: monochrome SVGs from the Simple Icons CDN, tinted with
  *   the brand color when available
- * - custom: user-uploaded file in Supabase Storage
+ * - custom: user-uploaded file (customUrl)
  *
- * Returns null when the skill has no resolvable icon (render name-only).
+ * Returns null when unresolvable (render name-only).
  */
-export function skillIconUrl(skill: Skill): string | null {
-  switch (skill.iconSource) {
+export function iconUrl(
+  source: string,
+  slug: string | null,
+  color: string | null,
+  variant: string | null,
+  customUrl: string | null,
+): string | null {
+  switch (source) {
     case "devicon": {
-      if (!skill.iconSlug) return null;
-      const variant = skill.iconVariant ?? "original";
-      return `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${skill.iconSlug}/${skill.iconSlug}-${variant}.svg`;
+      if (!slug) return null;
+      const v = variant ?? "original";
+      return `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${slug}/${slug}-${v}.svg`;
     }
     case "simple-icons": {
-      if (!skill.iconSlug) return null;
-      const tint = skill.color ? `/${skill.color.replace("#", "")}` : "";
-      return `https://cdn.simpleicons.org/${skill.iconSlug}${tint}`;
+      if (!slug) return null;
+      const tint = color ? `/${color.replace("#", "")}` : "";
+      return `https://cdn.simpleicons.org/${slug}${tint}`;
     }
     case "custom":
-      return skill.iconUrl;
+      return customUrl;
     default:
       return null;
   }
+}
+
+/** Icon URL for a skill row from the database. */
+export function skillIconUrl(skill: Skill): string | null {
+  return iconUrl(
+    skill.iconSource,
+    skill.iconSlug,
+    skill.color,
+    skill.iconVariant,
+    skill.iconUrl,
+  );
 }

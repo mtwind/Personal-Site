@@ -25,6 +25,8 @@ const serverEnvSchema = z.object({
     .min(1, "DATABASE_URL is required (Supabase pooled connection string)"),
   /** Modern secret key (sb_secret_...), successor to `service_role`. */
   SUPABASE_SECRET_KEY: z.string().min(1, "SUPABASE_SECRET_KEY is required"),
+  /** Brandfetch client id — optional; company autocomplete activates when set. */
+  BRANDFETCH_CLIENT_ID: z.string().optional(),
 });
 
 function formatEnvError(error: z.ZodError): string {
@@ -60,6 +62,7 @@ export function getServerEnv(): z.infer<typeof serverEnvSchema> {
   const result = serverEnvSchema.safeParse({
     DATABASE_URL: process.env.DATABASE_URL,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+    BRANDFETCH_CLIENT_ID: process.env.BRANDFETCH_CLIENT_ID,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));

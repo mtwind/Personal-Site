@@ -21,6 +21,7 @@ import {
   inputClass,
 } from "./form-fields";
 import { MediaEditor } from "./media-editor";
+import { SkillsEditor } from "./skills-editor";
 
 interface ProjectFormProps {
   project: ProjectWithRelations | null;
@@ -132,6 +133,11 @@ function ProjectItem({ project }: { project: ProjectWithRelations }) {
         </button>
         <FormError message={deleteError} />
       </div>
+      <SkillsEditor
+        ownerType="project"
+        ownerId={project.id}
+        skills={project.skills}
+      />
       <MediaEditor ownerType="project" ownerId={project.id} items={project.media} />
     </div>
   );

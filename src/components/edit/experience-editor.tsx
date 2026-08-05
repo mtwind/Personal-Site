@@ -20,7 +20,9 @@ import {
   SubmitButton,
   inputClass,
 } from "./form-fields";
+import { CompanySearch } from "./company-search";
 import { MediaEditor } from "./media-editor";
+import { SkillsEditor } from "./skills-editor";
 
 interface ExperienceFormProps {
   exp: ExperienceWithRelations | null;
@@ -44,17 +46,13 @@ function ExperienceForm({ exp, onClose }: ExperienceFormProps) {
       className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
     >
       {exp ? <input type="hidden" name="id" value={exp.id} /> : null}
+      <CompanySearch
+        idSuffix={exp?.id ?? "new"}
+        initialName={exp?.companyName ?? ""}
+        initialDomain={exp?.companyDomain ?? null}
+        initialLogoUrl={exp?.companyLogoUrl ?? null}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Company" htmlFor={`exp-company-${exp?.id ?? "new"}`}>
-          <input
-            id={`exp-company-${exp?.id ?? "new"}`}
-            name="companyName"
-            defaultValue={exp?.companyName ?? ""}
-            required
-            placeholder="Company name (search coming soon)"
-            className={inputClass}
-          />
-        </Field>
         <Field label="Title" htmlFor={`exp-title-${exp?.id ?? "new"}`}>
           <input
             id={`exp-title-${exp?.id ?? "new"}`}
@@ -134,6 +132,11 @@ function ExperienceItem({ exp }: { exp: ExperienceWithRelations }) {
         <FormError message={deleteError} />
       </div>
       <div className="pl-14">
+        <SkillsEditor
+          ownerType="experience"
+          ownerId={exp.id}
+          skills={exp.skills}
+        />
         <MediaEditor
           ownerType="experience"
           ownerId={exp.id}
