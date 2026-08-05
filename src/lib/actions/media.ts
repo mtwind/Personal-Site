@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { media } from "@/db/schema";
+import { requireEditor } from "@/lib/auth";
 import { UploadError, deleteImageByUrl, uploadImage } from "@/lib/storage";
 import { runMutation } from "./mutation";
 import {
@@ -13,6 +14,36 @@ import {
   parseMediaLinkForm,
   type ActionResult,
 } from "./validation";
+
+export type UploadUrlResult =
+  | { ok: true; url: string }
+  | { ok: false; error: string };
+
+/**
+ * Upload a company logo and return its URL. Unlike media uploads this
+ * attaches to nothing — the experience form carries the URL and saves
+ * it with the row, so it works for not-yet-created experiences too.
+ */
+export async function uploadCompanyLogo(
+  formData: FormData,
+): Promise<UploadUrlResult> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose an image to upload." };
+  }
+
+  try {
+    await requireEditor();
+    const url = await uploadImage(file, "company-logos");
+    return { ok: true, url };
+  } catch (error: unknown) {
+    console.error("Company logo upload failed:", error);
+    if (error instanceof UploadError) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Something went wrong uploading the logo." };
+  }
+}
 
 /** Upload an image file and attach it to an experience or project. */
 export async function uploadMediaImage(

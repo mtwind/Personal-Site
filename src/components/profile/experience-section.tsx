@@ -4,6 +4,40 @@ import { MediaList } from "./media-list";
 import { EmptyState, Section } from "./section";
 import { SkillBadgeList } from "./skill-badge";
 
+/** Company name + logo; links to the company site when a domain is set. */
+function CompanyLine({ exp }: { exp: ExperienceWithRelations }) {
+  const content = (
+    <>
+      {exp.companyLogoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={exp.companyLogoUrl}
+          alt=""
+          aria-hidden
+          className="h-4 w-4 rounded-sm object-contain"
+        />
+      ) : null}
+      {exp.companyName}
+    </>
+  );
+  const lineClass =
+    "mt-0.5 mb-2 flex items-center gap-2 font-sans text-[11px] font-semibold tracking-[0.18em] text-(--accent) uppercase";
+
+  if (!exp.companyDomain) {
+    return <div className={lineClass}>{content}</div>;
+  }
+  return (
+    <a
+      href={`https://${exp.companyDomain}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${lineClass} w-fit underline-offset-3 hover:underline`}
+    >
+      {content}
+    </a>
+  );
+}
+
 export function ExperienceCard({ exp }: { exp: ExperienceWithRelations }) {
   const dateRange = formatDateRange(exp.startDate, exp.endDate);
 
@@ -16,18 +50,7 @@ export function ExperienceCard({ exp }: { exp: ExperienceWithRelations }) {
         <h3 className="text-[19px] font-normal text-(--title) italic">
           {exp.title}
         </h3>
-        <div className="mt-0.5 mb-2 flex items-center gap-2 font-sans text-[11px] font-semibold tracking-[0.18em] text-(--accent) uppercase">
-          {exp.companyLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={exp.companyLogoUrl}
-              alt=""
-              aria-hidden
-              className="h-4 w-4 rounded-sm object-contain"
-            />
-          ) : null}
-          {exp.companyName}
-        </div>
+        <CompanyLine exp={exp} />
         {exp.bullets.length > 0 && (
           <ul className="list-disc space-y-1 pl-5 text-[14.5px] leading-6">
             {exp.bullets.map((bullet, i) => (
