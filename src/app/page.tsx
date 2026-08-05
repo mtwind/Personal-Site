@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { EditableProfile } from "@/components/edit/editable-profile";
 import { AboutSection } from "@/components/profile/about-section";
 import { ContactSection } from "@/components/profile/contact-section";
 import { ExperienceSection } from "@/components/profile/experience-section";
@@ -25,10 +26,16 @@ export default async function Home() {
     <div className="flex min-h-full flex-1 flex-col bg-white dark:bg-black">
       <SiteHeader name={name} auth={auth} />
       <main className="mx-auto w-full max-w-3xl flex-1 divide-y divide-zinc-100 px-4 dark:divide-zinc-900">
-        <AboutSection about={profile.about} />
-        <ExperienceSection experiences={profile.experiences} />
-        <ProjectSection projects={profile.projects} />
-        <ContactSection contact={profile.contact} />
+        {auth.isEditor ? (
+          <EditableProfile profile={profile} />
+        ) : (
+          <>
+            <AboutSection about={profile.about} />
+            <ExperienceSection experiences={profile.experiences} />
+            <ProjectSection projects={profile.projects} />
+            <ContactSection contact={profile.contact} />
+          </>
+        )}
       </main>
       <SiteFooter name={name} auth={auth} />
     </div>

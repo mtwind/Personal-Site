@@ -4,7 +4,7 @@ import { MediaList } from "./media-list";
 import { EmptyState, Section } from "./section";
 import { SkillBadgeList } from "./skill-badge";
 
-function ExperienceCard({ exp }: { exp: ExperienceWithRelations }) {
+export function ExperienceCard({ exp }: { exp: ExperienceWithRelations }) {
   const dateRange = formatDateRange(exp.startDate, exp.endDate);
 
   return (

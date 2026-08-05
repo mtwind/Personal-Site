@@ -3,9 +3,9 @@ import Image from "next/image";
 import type { About } from "@/lib/profile-data";
 import { EmptyState, Section } from "./section";
 
-export function AboutSection({ about }: { about: About | null }) {
+export function AboutView({ about }: { about: About | null }) {
   return (
-    <Section id="about" title="About">
+    <>
       {about ? (
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           {about.photoUrl ? (
@@ -33,6 +33,14 @@ export function AboutSection({ about }: { about: About | null }) {
       ) : (
         <EmptyState message="No about content yet — sign in and add some." />
       )}
+    </>
+  );
+}
+
+export function AboutSection({ about }: { about: About | null }) {
+  return (
+    <Section id="about" title="About">
+      <AboutView about={about} />
     </Section>
   );
 }

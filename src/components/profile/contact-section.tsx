@@ -40,11 +40,11 @@ function buildLinks(contact: Contact): ContactLink[] {
   return links;
 }
 
-export function ContactSection({ contact }: { contact: Contact | null }) {
+export function ContactView({ contact }: { contact: Contact | null }) {
   const links = contact ? buildLinks(contact) : [];
 
   return (
-    <Section id="contact" title="Contact">
+    <>
       {links.length > 0 ? (
         <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
           {links.map((link) => (
@@ -68,6 +68,14 @@ export function ContactSection({ contact }: { contact: Contact | null }) {
       ) : (
         <EmptyState message="No contact details added yet." />
       )}
+    </>
+  );
+}
+
+export function ContactSection({ contact }: { contact: Contact | null }) {
+  return (
+    <Section id="contact" title="Contact">
+      <ContactView contact={contact} />
     </Section>
   );
 }

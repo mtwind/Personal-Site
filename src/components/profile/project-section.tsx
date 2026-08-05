@@ -4,7 +4,7 @@ import { MediaList } from "./media-list";
 import { EmptyState, Section } from "./section";
 import { SkillBadgeList } from "./skill-badge";
 
-function ProjectCard({ project }: { project: ProjectWithRelations }) {
+export function ProjectCard({ project }: { project: ProjectWithRelations }) {
   const dateRange = formatDateRange(project.startDate, project.endDate);
 
   return (
