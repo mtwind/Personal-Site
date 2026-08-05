@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { EditModeToggle } from "@/components/edit/edit-mode";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { AuthState } from "@/lib/auth";
 
 const NAV_ITEMS = [
@@ -34,11 +36,8 @@ export function SiteHeader({ name, auth }: SiteHeaderProps) {
               </a>
             ))}
           </nav>
-          {auth.isEditor ? (
-            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
-              Editor
-            </span>
-          ) : null}
+          {auth.isEditor ? <EditModeToggle /> : null}
+          <ThemeToggle />
         </div>
       </div>
     </header>
