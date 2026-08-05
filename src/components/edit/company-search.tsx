@@ -30,7 +30,9 @@ export function CompanySearch({
   const [domain, setDomain] = useState(initialDomain ?? "");
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl ?? "");
   const [results, setResults] = useState<CompanyResult[]>([]);
-  const [configured, setConfigured] = useState(true);
+  const [status, setStatus] = useState<
+    "idle" | "ready" | "unconfigured" | "error"
+  >("idle");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
@@ -49,13 +51,20 @@ export function CompanySearch({
         .then((response) => (response.ok ? response.json() : null))
         .then(
           (data: { configured: boolean; results: CompanyResult[] } | null) => {
-            if (!data) return;
-            setConfigured(data.configured);
+            if (!data) {
+              setStatus("error");
+              setResults([]);
+              return;
+            }
+            setStatus(data.configured ? "ready" : "unconfigured");
             setResults(data.results);
             setOpen(true);
           },
         )
-        .catch(() => setResults([]));
+        .catch(() => {
+          setStatus("error");
+          setResults([]);
+        });
     }, 300);
     return () => clearTimeout(timer);
   }, [name, initialName]);
@@ -131,10 +140,16 @@ export function CompanySearch({
             ))}
           </ul>
         )}
-        {open && !configured && (
+        {status === "unconfigured" && (
           <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            Company autocomplete is off — set BRANDFETCH_CLIENT_ID to enable
-            it. Manual entry works fine.
+            Company autocomplete is off — set BRANDFETCH_CLIENT_ID in
+            .env.local and restart the dev server. Manual entry works fine.
+          </p>
+        )}
+        {status === "error" && (
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+            Company search is unavailable right now — enter the name and
+            domain manually.
           </p>
         )}
       </div>

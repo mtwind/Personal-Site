@@ -22,7 +22,7 @@ import {
 } from "./form-fields";
 import { CompanySearch } from "./company-search";
 import { MediaEditor } from "./media-editor";
-import { SkillsEditor } from "./skills-editor";
+import { SkillPickerField, toSkillSelections } from "./skill-picker-field";
 
 interface ExperienceFormProps {
   exp: ExperienceWithRelations | null;
@@ -88,6 +88,9 @@ function ExperienceForm({ exp, onClose }: ExperienceFormProps) {
       <Field label="Bullet points" htmlFor="bullets">
         <BulletsInput name="bullets" initial={exp?.bullets ?? []} />
       </Field>
+      <Field label="Skills" htmlFor="skills">
+        <SkillPickerField initial={toSkillSelections(exp?.skills ?? [])} />
+      </Field>
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">
         <SubmitButton>{exp ? "Save changes" : "Add experience"}</SubmitButton>
@@ -132,11 +135,6 @@ function ExperienceItem({ exp }: { exp: ExperienceWithRelations }) {
         <FormError message={deleteError} />
       </div>
       <div className="pl-14">
-        <SkillsEditor
-          ownerType="experience"
-          ownerId={exp.id}
-          skills={exp.skills}
-        />
         <MediaEditor
           ownerType="experience"
           ownerId={exp.id}

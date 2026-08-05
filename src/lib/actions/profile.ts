@@ -3,7 +3,16 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { about, contact, experiences, media, projects } from "@/db/schema";
+import {
+  about,
+  contact,
+  experienceSkills,
+  experiences,
+  media,
+  projectSkills,
+  projects,
+  skills,
+} from "@/db/schema";
 import { deleteImageByUrl, uploadImage } from "@/lib/storage";
 import { runMutation } from "./mutation";
 import {
@@ -14,7 +23,77 @@ import {
   parseExperienceForm,
   parseProjectForm,
   type ActionResult,
+  type SkillSelection,
 } from "./validation";
+
+/**
+ * Replace an entry's skill links with the form's selections. Skill rows
+ * are shared and upserted by unique name — "React" on two entries is
+ * one row with two links.
+ */
+async function syncSkills(
+  ownerType: "experience" | "project",
+  ownerId: string,
+  selections: SkillSelection[],
+): Promise<void> {
+  const seen = new Set<string>();
+  const deduped = selections.filter((selection) => {
+    const key = selection.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const skillIds: string[] = [];
+  for (const selection of deduped) {
+    const inserted = await db
+      .insert(skills)
+      .values({
+        name: selection.name,
+        iconSlug: selection.slug,
+        iconSource: selection.source,
+        iconVariant: selection.variant,
+        color: selection.color,
+      })
+      .onConflictDoNothing({ target: skills.name })
+      .returning({ id: skills.id });
+    const skillId =
+      inserted[0]?.id ??
+      (
+        await db
+          .select({ id: skills.id })
+          .from(skills)
+          .where(eq(skills.name, selection.name))
+      )[0]?.id;
+    if (skillId) skillIds.push(skillId);
+  }
+
+  if (ownerType === "experience") {
+    await db
+      .delete(experienceSkills)
+      .where(eq(experienceSkills.experienceId, ownerId));
+    if (skillIds.length > 0) {
+      await db.insert(experienceSkills).values(
+        skillIds.map((skillId, index) => ({
+          experienceId: ownerId,
+          skillId,
+          sortOrder: index,
+        })),
+      );
+    }
+  } else {
+    await db.delete(projectSkills).where(eq(projectSkills.projectId, ownerId));
+    if (skillIds.length > 0) {
+      await db.insert(projectSkills).values(
+        skillIds.map((skillId, index) => ({
+          projectId: ownerId,
+          skillId,
+          sortOrder: index,
+        })),
+      );
+    }
+  }
+}
 
 export async function saveAbout(
   _prev: ActionResult | null,
@@ -95,8 +174,13 @@ export async function createExperience(
   const parsed = parseExperienceForm(formData);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
+  const { skills: skillSelections, ...values } = parsed.data;
   return runMutation(async () => {
-    await db.insert(experiences).values(withLogoFallback(parsed.data));
+    const inserted = await db
+      .insert(experiences)
+      .values(withLogoFallback(values))
+      .returning({ id: experiences.id });
+    await syncSkills("experience", inserted[0].id, skillSelections);
   });
 }
 
@@ -110,11 +194,13 @@ export async function updateExperience(
   const parsed = parseExperienceForm(formData);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
+  const { skills: skillSelections, ...values } = parsed.data;
   return runMutation(async () => {
     await db
       .update(experiences)
-      .set({ ...withLogoFallback(parsed.data), updatedAt: new Date() })
+      .set({ ...withLogoFallback(values), updatedAt: new Date() })
       .where(eq(experiences.id, id.data));
+    await syncSkills("experience", id.data, skillSelections);
   });
 }
 
@@ -157,8 +243,13 @@ export async function createProject(
   const parsed = parseProjectForm(formData);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
+  const { skills: skillSelections, ...values } = parsed.data;
   return runMutation(async () => {
-    await db.insert(projects).values(parsed.data);
+    const inserted = await db
+      .insert(projects)
+      .values(values)
+      .returning({ id: projects.id });
+    await syncSkills("project", inserted[0].id, skillSelections);
   });
 }
 
@@ -172,11 +263,13 @@ export async function updateProject(
   const parsed = parseProjectForm(formData);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
+  const { skills: skillSelections, ...values } = parsed.data;
   return runMutation(async () => {
     await db
       .update(projects)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set({ ...values, updatedAt: new Date() })
       .where(eq(projects.id, id.data));
+    await syncSkills("project", id.data, skillSelections);
   });
 }
 

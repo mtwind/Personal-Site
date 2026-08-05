@@ -21,7 +21,7 @@ import {
   inputClass,
 } from "./form-fields";
 import { MediaEditor } from "./media-editor";
-import { SkillsEditor } from "./skills-editor";
+import { SkillPickerField, toSkillSelections } from "./skill-picker-field";
 
 interface ProjectFormProps {
   project: ProjectWithRelations | null;
@@ -92,6 +92,9 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
       <Field label="Bullet points" htmlFor="bullets">
         <BulletsInput name="bullets" initial={project?.bullets ?? []} />
       </Field>
+      <Field label="Skills" htmlFor="skills">
+        <SkillPickerField initial={toSkillSelections(project?.skills ?? [])} />
+      </Field>
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">
         <SubmitButton>{project ? "Save changes" : "Add project"}</SubmitButton>
@@ -133,11 +136,6 @@ function ProjectItem({ project }: { project: ProjectWithRelations }) {
         </button>
         <FormError message={deleteError} />
       </div>
-      <SkillsEditor
-        ownerType="project"
-        ownerId={project.id}
-        skills={project.skills}
-      />
       <MediaEditor ownerType="project" ownerId={project.id} items={project.media} />
     </div>
   );

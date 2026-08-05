@@ -47,6 +47,27 @@ export const contactSchema = z.object({
   showPhone: z.boolean(),
 });
 
+/** A skill chosen in the picker: catalog entry or custom name. */
+export const skillSelectionSchema = z.object({
+  name: z.string().trim().min(1, "Skill name is required").max(100),
+  slug: z.string().max(100).nullable(),
+  source: z.enum(["devicon", "simple-icons", "custom"]),
+  color: z.string().max(20).nullable(),
+  variant: z.string().max(40).nullable(),
+});
+
+export type SkillSelection = z.infer<typeof skillSelectionSchema>;
+
+/** Hidden-field JSON → unknown for schema validation (null on bad JSON). */
+function parseJsonField(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 export const experienceSchema = z.object({
   companyName: z.string().min(1, "Company is required").max(200),
   companyDomain: z
@@ -58,6 +79,7 @@ export const experienceSchema = z.object({
   startDate: z.iso.date("Start date is required"),
   endDate: z.iso.date().nullable(),
   bullets: z.array(z.string().max(500)).max(20),
+  skills: z.array(skillSelectionSchema).max(30),
 });
 
 /** "https://www.Stripe.com/about" → "stripe.com"; empty → null. */
@@ -78,6 +100,7 @@ export const projectSchema = z.object({
   endDate: z.iso.date().nullable(),
   repoUrl: z.url("Repo link must be a valid URL").nullable(),
   bullets: z.array(z.string().max(500)).max(20),
+  skills: z.array(skillSelectionSchema).max(30),
 });
 
 export const idSchema = z.uuid();
@@ -131,6 +154,7 @@ export function parseExperienceForm(formData: FormData) {
     startDate: requiredString(formData.get("startDate")),
     endDate: emptyToNull(formData.get("endDate")),
     bullets: bulletList(formData),
+    skills: parseJsonField(formData.get("skills")),
   });
 }
 
@@ -141,6 +165,7 @@ export function parseProjectForm(formData: FormData) {
     endDate: emptyToNull(formData.get("endDate")),
     repoUrl: emptyToNull(formData.get("repoUrl")),
     bullets: bulletList(formData),
+    skills: parseJsonField(formData.get("skills")),
   });
 }
 
