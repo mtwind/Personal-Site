@@ -82,6 +82,16 @@ export const experienceSchema = z.object({
   skills: z.array(skillSelectionSchema).max(30),
 });
 
+/**
+ * Month inputs post "YYYY-MM"; date columns need a full date. Pin to
+ * the 1st — display only ever shows month/year anyway.
+ */
+function normalizeMonth(value: FormDataEntryValue | null): string | null {
+  const raw = emptyToNull(value);
+  if (!raw) return null;
+  return /^\d{4}-\d{2}$/.test(raw) ? `${raw}-01` : raw;
+}
+
 /** "https://www.Stripe.com/about" → "stripe.com"; empty → null. */
 function normalizeDomain(value: FormDataEntryValue | null): string | null {
   const raw = emptyToNull(value);
@@ -151,8 +161,8 @@ export function parseExperienceForm(formData: FormData) {
     companyDomain: normalizeDomain(formData.get("companyDomain")),
     companyLogoUrl: emptyToNull(formData.get("companyLogoUrl")),
     title: requiredString(formData.get("title")),
-    startDate: requiredString(formData.get("startDate")),
-    endDate: emptyToNull(formData.get("endDate")),
+    startDate: normalizeMonth(formData.get("startDate")) ?? "",
+    endDate: normalizeMonth(formData.get("endDate")),
     bullets: bulletList(formData),
     skills: parseJsonField(formData.get("skills")),
   });
@@ -161,8 +171,8 @@ export function parseExperienceForm(formData: FormData) {
 export function parseProjectForm(formData: FormData) {
   return projectSchema.safeParse({
     name: requiredString(formData.get("name")),
-    startDate: emptyToNull(formData.get("startDate")),
-    endDate: emptyToNull(formData.get("endDate")),
+    startDate: normalizeMonth(formData.get("startDate")),
+    endDate: normalizeMonth(formData.get("endDate")),
     repoUrl: emptyToNull(formData.get("repoUrl")),
     bullets: bulletList(formData),
     skills: parseJsonField(formData.get("skills")),

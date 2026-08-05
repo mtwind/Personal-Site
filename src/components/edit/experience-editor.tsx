@@ -62,25 +62,25 @@ function ExperienceForm({ exp, onClose }: ExperienceFormProps) {
             className={inputClass}
           />
         </Field>
-        <Field label="Start date" htmlFor={`exp-start-${exp?.id ?? "new"}`}>
+        <Field label="Start month" htmlFor={`exp-start-${exp?.id ?? "new"}`}>
           <input
             id={`exp-start-${exp?.id ?? "new"}`}
             name="startDate"
-            type="date"
-            defaultValue={exp?.startDate ?? ""}
+            type="month"
+            defaultValue={exp?.startDate?.slice(0, 7) ?? ""}
             required
             className={inputClass}
           />
         </Field>
         <Field
-          label="End date (blank = present)"
+          label="End month (blank = present)"
           htmlFor={`exp-end-${exp?.id ?? "new"}`}
         >
           <input
             id={`exp-end-${exp?.id ?? "new"}`}
             name="endDate"
-            type="date"
-            defaultValue={exp?.endDate ?? ""}
+            type="month"
+            defaultValue={exp?.endDate?.slice(0, 7) ?? ""}
             className={inputClass}
           />
         </Field>

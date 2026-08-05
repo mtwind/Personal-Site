@@ -67,24 +67,24 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
             className={inputClass}
           />
         </Field>
-        <Field label="Start date" htmlFor={`proj-start-${idSuffix}`}>
+        <Field label="Start month" htmlFor={`proj-start-${idSuffix}`}>
           <input
             id={`proj-start-${idSuffix}`}
             name="startDate"
-            type="date"
-            defaultValue={project?.startDate ?? ""}
+            type="month"
+            defaultValue={project?.startDate?.slice(0, 7) ?? ""}
             className={inputClass}
           />
         </Field>
         <Field
-          label="End date (blank = ongoing)"
+          label="End month (blank = ongoing)"
           htmlFor={`proj-end-${idSuffix}`}
         >
           <input
             id={`proj-end-${idSuffix}`}
             name="endDate"
-            type="date"
-            defaultValue={project?.endDate ?? ""}
+            type="month"
+            defaultValue={project?.endDate?.slice(0, 7) ?? ""}
             className={inputClass}
           />
         </Field>
