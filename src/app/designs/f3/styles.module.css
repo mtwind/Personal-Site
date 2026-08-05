@@ -1,0 +1,71 @@
+.page {
+  min-height: 100vh;
+  background: linear-gradient(175deg, #0e1023 0%, #141433 100%);
+  color: #b3b6d4;
+  font-size: 14.5px;
+  line-height: 1.6;
+  padding: 56px 24px 100px;
+}
+.in { max-width: 760px; margin: 0 auto; }
+.hero { margin-bottom: 52px; }
+.name { font-size: 40px; color: #f2f2fb; letter-spacing: -0.02em; margin: 0; font-weight: 700; }
+.rule {
+  height: 3px;
+  width: 130px;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #6366f1, #a5b4fc, #6366f1);
+  background-size: 200% 100%;
+  animation: shimmer 3.2s linear infinite;
+}
+@keyframes shimmer {
+  from { background-position: 0% 0; }
+  to { background-position: 200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rule { animation: none; }
+}
+.headline { color: #8286ad; margin-top: 12px; font-size: 16px; }
+.sectionTitle {
+  font-size: 12.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #818cf8;
+  margin: 38px 0 16px;
+  font-weight: 600;
+}
+.row { border-left: 2px solid #2c2f55; padding: 2px 0 2px 20px; margin-bottom: 22px; }
+.jobTitle { color: #f2f2fb; font-size: 15.5px; margin: 0; font-weight: 600; }
+.sub { font-size: 12.5px; color: #8286ad; margin-bottom: 6px; }
+.bullets { font-size: 13.5px; padding-left: 18px; margin: 0; }
+.bullets li { margin-bottom: 3px; }
+.chip {
+  display: inline-block;
+  font-size: 11px;
+  border-radius: 6px;
+  padding: 3px 10px;
+  background: #1c1e42;
+  color: #a5b4fc;
+  margin: 8px 5px 0 0;
+}
+.projRow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .projRow { grid-template-columns: 1fr; } }
+.proj {
+  background: #151738;
+  border: 1px solid #262a55;
+  border-radius: 14px;
+  padding: 18px;
+}
+.projName { color: #f2f2fb; font-size: 14.5px; margin: 0; font-weight: 600; }
+.dts { font-size: 11.5px; color: #8286ad; }
+.projText { font-size: 13px; margin-top: 5px; }
+.repo { color: #818cf8; font-size: 12.5px; display: inline-block; margin-top: 8px; text-decoration: none; }
+.repo:hover { text-decoration: underline; }
+.contact { display: flex; gap: 24px; margin-top: 36px; font-size: 14px; flex-wrap: wrap; }
+.contact a {
+  color: #e3e4f5;
+  border-bottom: 1px solid #33376b;
+  padding-bottom: 2px;
+  text-decoration: none;
+}
+.contact a:hover { color: #a5b4fc; border-color: #a5b4fc; }
