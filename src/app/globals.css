@@ -74,6 +74,12 @@ body * {
   to { transform: translateX(-110%); }
 }
 
+/* Team-matching page: Google-colored orbs drifting behind content. */
+@keyframes g-float {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(48px, -36px) scale(1.14); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   body * {

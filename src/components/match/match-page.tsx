@@ -11,9 +11,39 @@ export interface MatchPageProps {
   isEditor: boolean;
   ownerName: string;
   contactEmail: string | null;
+  /** Roboto class from next/font, applied to this page only. */
+  fontClass: string;
 }
 
 const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
+
+const FOUR_COLOR_GRADIENT =
+  "linear-gradient(90deg,#4285F4 0%,#4285F4 25%,#EA4335 25%,#EA4335 50%,#FBBC04 50%,#FBBC04 75%,#34A853 75%,#34A853 100%)";
+
+/** Material elevation-on-hover for content cards. */
+const CARD =
+  "rounded-2xl border border-[#dadce0] bg-white p-6 transition-shadow duration-300 hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]";
+
+/** Soft Google-colored orbs drifting behind the page (CSS-only). */
+function FloatingOrbs() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+    >
+      <span className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-[#4285F4] opacity-15 blur-3xl [animation:g-float_18s_ease-in-out_infinite_alternate]" />
+      <span className="absolute top-1/3 -right-28 h-[26rem] w-[26rem] rounded-full bg-[#EA4335] opacity-10 blur-3xl [animation:g-float_23s_ease-in-out_infinite_alternate-reverse]" />
+      <span
+        className="absolute bottom-8 left-1/4 h-80 w-80 rounded-full bg-[#FBBC04] opacity-15 blur-3xl [animation:g-float_20s_ease-in-out_infinite_alternate]"
+        style={{ animationDelay: "-6s" }}
+      />
+      <span
+        className="absolute -bottom-24 right-1/4 h-72 w-72 rounded-full bg-[#34A853] opacity-15 blur-3xl [animation:g-float_26s_ease-in-out_infinite_alternate-reverse]"
+        style={{ animationDelay: "-10s" }}
+      />
+    </div>
+  );
+}
 
 /**
  * Google-styled shell for the hidden team-matching page. The wrapper
@@ -25,6 +55,7 @@ export function MatchPageClient({
   isEditor,
   ownerName,
   contactEmail,
+  fontClass,
 }: MatchPageProps) {
   const [editing, setEditing] = useState(false);
   const [exiting, setExiting] = useState(false);
@@ -36,8 +67,13 @@ export function MatchPageClient({
       : null);
 
   return (
-    <div className="min-h-screen flex-1 bg-[#f8f9fa] font-sans text-[#3c4043] [--accent:#1a73e8] [--bg:#f8f9fa] [--bg-elev:#ffffff] [--danger:#d93025] [--dim:#5f6368] [--hover-bg:rgba(26,115,232,0.05)] [--line:#dadce0] [--title:#202124]">
-      <header className="border-b border-[#dadce0] bg-white">
+    <div
+      className={`${fontClass} min-h-screen flex-1 bg-[#f8f9fa] text-[#3c4043] [--accent:#1a73e8] [--bg:#f8f9fa] [--bg-elev:#ffffff] [--danger:#d93025] [--dim:#5f6368] [--hover-bg:rgba(26,115,232,0.05)] [--line:#dadce0] [--title:#202124]`}
+    >
+      <FloatingOrbs />
+
+      <header className="relative z-10 border-b border-[#dadce0] bg-white/85 backdrop-blur">
+        <div className="h-[3px] w-full" style={{ background: FOUR_COLOR_GRADIENT }} />
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1" aria-hidden>
@@ -66,27 +102,54 @@ export function MatchPageClient({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-10">
+      <main className="relative z-10 mx-auto max-w-3xl px-5 py-10">
         {editing ? (
           <MatchEditorForm page={page} onClose={() => setEditing(false)} />
         ) : (
           <>
-            <h1 className="text-[32px] leading-tight font-normal text-[#202124]">
+            <div className="flex w-fit items-center gap-3 rounded-full border border-[#dadce0] bg-white px-5 py-2.5 shadow-sm">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#4285F4"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                className="h-4.5 w-4.5"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.8-3.8" />
+              </svg>
+              <span className="text-[15px] text-[#202124] lowercase">
+                {ownerName} · team matching
+              </span>
+            </div>
+
+            <h1 className="mt-6 text-[32px] leading-tight font-normal text-[#202124]">
               {page.headline || "Team Matching Profile"}
             </h1>
+            <div
+              className="mt-3 h-1 w-28 rounded-full"
+              style={{ background: FOUR_COLOR_GRADIENT }}
+              aria-hidden
+            />
             {page.intro ? (
-              <p className="mt-3 max-w-[65ch] text-[16px] leading-7 whitespace-pre-line">
+              <p className="mt-5 max-w-[65ch] text-[16px] leading-7 whitespace-pre-line">
                 {page.intro}
               </p>
             ) : null}
 
             <div className="mt-8 space-y-4">
               {page.sections.map((section, index) => (
-                <section
-                  key={index}
-                  className="rounded-2xl border border-[#dadce0] bg-white p-6"
-                >
-                  <h2 className="text-lg font-medium text-[#202124]">
+                <section key={index} className={CARD}>
+                  <h2 className="flex items-center gap-2.5 text-lg font-medium text-[#202124]">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{
+                        background: GOOGLE_DOTS[index % GOOGLE_DOTS.length],
+                      }}
+                      aria-hidden
+                    />
                     {section.title}
                   </h2>
                   <p className="mt-2 text-[15px] leading-7 whitespace-pre-line">
@@ -96,7 +159,9 @@ export function MatchPageClient({
               ))}
 
               {page.resumeUrl ? (
-                <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dadce0] bg-white p-6">
+                <section
+                  className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
+                >
                   <div>
                     <h2 className="text-lg font-medium text-[#202124]">
                       Résumé
@@ -117,7 +182,9 @@ export function MatchPageClient({
               ) : null}
 
               {meetingHref ? (
-                <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dadce0] bg-white p-6">
+                <section
+                  className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
+                >
                   <div>
                     <h2 className="text-lg font-medium text-[#202124]">
                       Want to talk?
@@ -148,6 +215,10 @@ export function MatchPageClient({
                 Done viewing — leave page
               </button>
             </div>
+            <p className="mt-6 text-center text-[11px] text-[#9aa0a6]">
+              Inspired by Google&apos;s design language — not affiliated with
+              Google.
+            </p>
           </>
         )}
       </main>

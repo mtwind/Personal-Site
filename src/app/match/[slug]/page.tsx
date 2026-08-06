@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
+import { Roboto } from "next/font/google";
 import { notFound } from "next/navigation";
 
 import { MatchPageClient } from "@/components/match/match-page";
 import { getAuthState } from "@/lib/auth";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
+
+/** Roboto: the authentic Google typeface for this page only. */
+const roboto = Roboto({
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+});
 
 /** Hidden page: reachable only by exact slug, never indexed or linked. */
 export const metadata: Metadata = {
@@ -28,6 +35,7 @@ export default async function MatchPage(props: PageProps<"/match/[slug]">) {
       isEditor={auth.isEditor}
       ownerName={profile.about?.name ?? "Matthew Wind"}
       contactEmail={profile.contact?.email ?? null}
+      fontClass={roboto.className}
     />
   );
 }

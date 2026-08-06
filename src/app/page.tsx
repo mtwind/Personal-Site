@@ -7,6 +7,7 @@ import { ProfileBody } from "@/components/profile/profile-body";
 import { SiteFooter, SiteHeader } from "@/components/profile/site-header";
 import { getAuthState } from "@/lib/auth";
 import { getProfileData } from "@/lib/profile-data";
+import { getTeamMatchPage } from "@/lib/team-match-data";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { about } = await getProfileData();
@@ -26,6 +27,11 @@ export default async function Home() {
   const name = profile.about?.name || "Personal Site";
   const editMode =
     auth.isEditor && cookieStore.get(EDIT_MODE_COOKIE)?.value === "on";
+  // Secret-page shortcut: fetched (and rendered) only for the editor,
+  // so the slug never appears in anyone else's HTML.
+  const matchSlug = auth.isEditor
+    ? ((await getTeamMatchPage())?.slug ?? null)
+    : null;
 
   const initials =
     name
@@ -38,7 +44,7 @@ export default async function Home() {
     <EditModeProvider initial={editMode}>
       <div className="flex min-h-full flex-1 flex-col">
         <GhostMonogram initials={initials} />
-        <SiteHeader name={name} auth={auth} />
+        <SiteHeader name={name} auth={auth} matchSlug={matchSlug} />
         <main className="relative z-[1] mx-auto w-full max-w-3xl flex-1 px-5">
           <ProfileBody profile={profile} isEditor={auth.isEditor} />
         </main>
