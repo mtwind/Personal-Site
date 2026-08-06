@@ -177,6 +177,54 @@ export function parseProjectForm(formData: FormData) {
   });
 }
 
+export const teamMatchSchema = z.object({
+  headline: z.string().max(200),
+  intro: z.string().max(2000),
+  meetingUrl: z.url("Meeting link must be a valid URL").nullable(),
+  sections: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1, "Section title is required").max(120),
+        body: z.string().max(4000),
+      }),
+    )
+    .max(12),
+});
+
+export type TeamMatchInput = z.infer<typeof teamMatchSchema>;
+
+export function parseTeamMatchForm(formData: FormData) {
+  return teamMatchSchema.safeParse({
+    headline: requiredString(formData.get("headline")),
+    intro: requiredString(formData.get("intro")),
+    meetingUrl: emptyToNull(formData.get("meetingUrl")),
+    sections: parseJsonField(formData.get("sections")),
+  });
+}
+
+export const feedbackSchema = z
+  .object({
+    role: z.enum(["recruiter", "hiring_manager", "googler", "other"]).nullable(),
+    improvementNote: z.string().max(2000).nullable(),
+    wantsCall: z.boolean(),
+    visitorEmail: z.email("Enter a valid email").nullable(),
+  })
+  .refine((data) => !data.wantsCall || data.visitorEmail !== null, {
+    message: "Add an email so I can reach out about the call",
+    path: ["visitorEmail"],
+  });
+
+export type FeedbackInput = z.infer<typeof feedbackSchema>;
+
+export function parseFeedbackForm(formData: FormData) {
+  return feedbackSchema.safeParse({
+    role: emptyToNull(formData.get("role")),
+    improvementNote: emptyToNull(formData.get("improvementNote")),
+    wantsCall: formData.get("wantsCall") === "on",
+    visitorEmail: emptyToNull(formData.get("visitorEmail")),
+  });
+}
+
 /** First human-readable issue from a failed parse. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";

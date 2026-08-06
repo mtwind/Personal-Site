@@ -27,6 +27,12 @@ const serverEnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1, "SUPABASE_SECRET_KEY is required"),
   /** Brandfetch client id — optional; company autocomplete activates when set. */
   BRANDFETCH_CLIENT_ID: z.string().optional(),
+  /** Resend API key — optional; feedback emails activate when set. */
+  RESEND_API_KEY: z.string().optional(),
+  /** Verified sender for Resend; onboarding@resend.dev works for testing. */
+  RESEND_FROM: z.string().optional(),
+  /** Where feedback notifications go; falls back to the contact email. */
+  NOTIFY_EMAIL: z.email().optional(),
 });
 
 function formatEnvError(error: z.ZodError): string {
@@ -63,6 +69,9 @@ export function getServerEnv(): z.infer<typeof serverEnvSchema> {
     DATABASE_URL: process.env.DATABASE_URL,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
     BRANDFETCH_CLIENT_ID: process.env.BRANDFETCH_CLIENT_ID,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RESEND_FROM: process.env.RESEND_FROM,
+    NOTIFY_EMAIL: process.env.NOTIFY_EMAIL,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));
