@@ -13,7 +13,11 @@ import {
   projects,
   skills,
 } from "@/db/schema";
-import { deleteImageByUrl, uploadImage } from "@/lib/storage";
+import {
+  deleteStoredFileByUrl,
+  uploadImage,
+  uploadResume,
+} from "@/lib/storage";
 import { runMutation } from "./mutation";
 import {
   firstIssue,
@@ -115,10 +119,10 @@ export async function saveAbout(
     let photoUrl = currentPhotoUrl;
     if (photoFile instanceof File && photoFile.size > 0) {
       photoUrl = await uploadImage(photoFile, "about");
-      await deleteImageByUrl(currentPhotoUrl);
+      await deleteStoredFileByUrl(currentPhotoUrl);
     } else if (removePhoto) {
       photoUrl = null;
-      await deleteImageByUrl(currentPhotoUrl);
+      await deleteStoredFileByUrl(currentPhotoUrl);
     }
 
     const values = { ...parsed.data, photoUrl };
@@ -141,14 +145,32 @@ export async function saveContact(
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
 
   return runMutation(async () => {
-    const existing = await db.select({ id: contact.id }).from(contact).limit(1);
+    const existing = await db
+      .select({ id: contact.id, resumeUrl: contact.resumeUrl })
+      .from(contact)
+      .limit(1);
+    const currentResumeUrl = existing[0]?.resumeUrl ?? null;
+
+    // Résumé: new upload wins, then explicit removal, else keep current.
+    const resumeFile = formData.get("resume");
+    const removeResume = formData.get("removeResume") === "on";
+    let resumeUrl = currentResumeUrl;
+    if (resumeFile instanceof File && resumeFile.size > 0) {
+      resumeUrl = await uploadResume(resumeFile);
+      await deleteStoredFileByUrl(currentResumeUrl);
+    } else if (removeResume) {
+      resumeUrl = null;
+      await deleteStoredFileByUrl(currentResumeUrl);
+    }
+
+    const values = { ...parsed.data, resumeUrl };
     if (existing[0]) {
       await db
         .update(contact)
-        .set({ ...parsed.data, updatedAt: new Date() })
+        .set({ ...values, updatedAt: new Date() })
         .where(eq(contact.id, existing[0].id));
     } else {
-      await db.insert(contact).values(parsed.data);
+      await db.insert(contact).values(values);
     }
   });
 }
@@ -229,7 +251,7 @@ async function deleteOwnedMedia(
   await Promise.all(
     rows
       .filter((row) => row.kind === "image")
-      .map((row) => deleteImageByUrl(row.url)),
+      .map((row) => deleteStoredFileByUrl(row.url)),
   );
   await db
     .delete(media)

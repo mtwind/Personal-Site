@@ -43,7 +43,6 @@ export const contactSchema = z.object({
   linkedinUrl: z.url("LinkedIn must be a valid URL").nullable(),
   phone: z.string().max(30).nullable(),
   email: z.email("Invalid email").nullable(),
-  resumeUrl: z.url("Resume must be a valid URL").nullable(),
   showPhone: z.boolean(),
 });
 
@@ -150,7 +149,6 @@ export function parseContactForm(formData: FormData) {
     linkedinUrl: emptyToNull(formData.get("linkedinUrl")),
     phone: emptyToNull(formData.get("phone")),
     email: emptyToNull(formData.get("email")),
-    resumeUrl: emptyToNull(formData.get("resumeUrl")),
     showPhone: formData.get("showPhone") === "on",
   });
 }

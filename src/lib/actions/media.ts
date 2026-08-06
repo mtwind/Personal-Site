@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { media } from "@/db/schema";
 import { requireEditor } from "@/lib/auth";
-import { UploadError, deleteImageByUrl, uploadImage } from "@/lib/storage";
+import { UploadError, deleteStoredFileByUrl, uploadImage } from "@/lib/storage";
 import { runMutation } from "./mutation";
 import {
   firstIssue,
@@ -106,7 +106,7 @@ export async function deleteMedia(rawId: string): Promise<ActionResult> {
     if (!row) throw new UploadError("Media item not found.");
 
     if (row.kind === "image") {
-      await deleteImageByUrl(row.url);
+      await deleteStoredFileByUrl(row.url);
     }
     await db.delete(media).where(eq(media.id, id.data));
   });
