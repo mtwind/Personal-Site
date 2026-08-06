@@ -13,7 +13,8 @@ const ROLES: [string, string][] = [
   ["other", "Other"],
 ];
 
-const LEAVE_URL = "https://www.google.com";
+/** Leaving the hidden page lands on the public profile. */
+const LEAVE_URL = "/";
 
 interface ExitDialogProps {
   onDismiss: () => void;
