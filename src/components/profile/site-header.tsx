@@ -38,7 +38,7 @@ const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
 
 export function SiteHeader({ name, auth, matchSlug }: SiteHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-(--line) bg-(--header-bg) backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-(--line) bg-(--header-bg)">
       <HeaderNav name={name} items={NAV_ITEMS} priority={NAV_PRIORITY}>
         {matchSlug ? (
           <Link
