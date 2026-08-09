@@ -68,10 +68,16 @@ body * {
     border-color 0.6s ease;
 }
 
-/* Ghost monogram sweep — full viewport, behind content. */
-@keyframes ghost-sweep {
-  from { transform: translateX(100vw); }
-  to { transform: translateX(-110%); }
+/* Ghost background bands — marks drift across, alternating direction.
+   Each track holds two identical passes, so shifting by half its width
+   loops seamlessly. */
+@keyframes ghost-drift-ltr {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+@keyframes ghost-drift-rtl {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 /* Team-matching page: Google-colored orbs drifting behind content. */

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { EDIT_MODE_COOKIE, EditModeProvider } from "@/components/edit/edit-mode";
-import { GhostMonogram } from "@/components/profile/ghost";
+import { GhostBackground } from "@/components/profile/ghost";
 import { ProfileBody } from "@/components/profile/profile-body";
 import { SiteFooter, SiteHeader } from "@/components/profile/site-header";
 import { getAuthState } from "@/lib/auth";
@@ -45,7 +45,7 @@ export default async function Home() {
   return (
     <EditModeProvider initial={editMode}>
       <div className="flex min-h-full flex-1 flex-col">
-        <GhostMonogram initials={initials} />
+        <GhostBackground initials={initials} />
         <SiteHeader name={name} auth={auth} matchSlug={matchSlug} />
         <main className="relative z-[1] mx-auto w-full max-w-3xl flex-1 px-5">
           <ProfileBody profile={profile} isEditor={auth.isEditor} />
