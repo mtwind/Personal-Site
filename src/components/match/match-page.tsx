@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import type { TeamMatchPage } from "@/lib/team-match-data";
@@ -91,13 +92,21 @@ export function MatchPageClient({
             </span>
           </div>
           {isEditor && !editing ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-            >
-              Edit page
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/feedback"
+                className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+              >
+                Feedback
+              </Link>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+              >
+                Edit page
+              </button>
+            </div>
           ) : null}
         </div>
       </header>

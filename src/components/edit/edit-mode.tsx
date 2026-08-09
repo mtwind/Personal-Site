@@ -59,8 +59,10 @@ export function EditModeToggle() {
           editMode ? "bg-(--accent)" : "bg-(--line)"
         }`}
       >
+        {/* left-0 anchors the static position: buttons center inline
+            content, which would otherwise offset the knob mid-track. */}
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-(--bg-elev) shadow transition-transform duration-200 ${
+          className={`absolute top-0.5 left-0 h-4 w-4 rounded-full bg-(--bg-elev) shadow transition-transform duration-200 ${
             editMode ? "translate-x-4.5" : "translate-x-0.5"
           }`}
         />

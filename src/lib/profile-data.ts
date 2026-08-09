@@ -9,6 +9,7 @@ import { db } from "@/db";
 import {
   about,
   contact,
+  courses,
   experienceSkills,
   experiences,
   media,
@@ -22,6 +23,7 @@ export type About = InferSelectModel<typeof about>;
 export type Contact = InferSelectModel<typeof contact>;
 export type Experience = InferSelectModel<typeof experiences>;
 export type Project = InferSelectModel<typeof projects>;
+export type Course = InferSelectModel<typeof courses>;
 export type MediaItem = InferSelectModel<typeof media>;
 
 export interface ExperienceWithRelations extends Experience {
@@ -34,10 +36,16 @@ export interface ProjectWithRelations extends Project {
   media: MediaItem[];
 }
 
+export interface CourseWithProjects extends Course {
+  projects: ProjectWithRelations[];
+}
+
 export interface ProfileData {
   about: About | null;
   experiences: ExperienceWithRelations[];
+  /** Standalone projects only — course projects live under `courses`. */
   projects: ProjectWithRelations[];
+  courses: CourseWithProjects[];
   contact: Contact | null;
 }
 
@@ -75,6 +83,7 @@ export const getProfileData = cache(async (): Promise<ProfileData> => {
     aboutRows,
     experienceRows,
     projectRows,
+    courseRows,
     contactRows,
     expSkillRows,
     projSkillRows,
@@ -89,6 +98,10 @@ export const getProfileData = cache(async (): Promise<ProfileData> => {
       .select()
       .from(projects)
       .orderBy(asc(projects.sortOrder), desc(projects.startDate)),
+    db
+      .select()
+      .from(courses)
+      .orderBy(asc(courses.sortOrder), asc(courses.courseNumber)),
     db.select().from(contact).limit(1),
     db
       .select({
@@ -109,6 +122,12 @@ export const getProfileData = cache(async (): Promise<ProfileData> => {
     db.select().from(media),
   ]);
 
+  const allProjects = projectRows.map((proj) => ({
+    ...proj,
+    skills: skillsFor(projSkillRows, proj.id),
+    media: mediaFor(mediaRows, "project", proj.id),
+  }));
+
   return {
     about: aboutRows[0] ?? null,
     contact: contactRows[0] ?? null,
@@ -117,10 +136,10 @@ export const getProfileData = cache(async (): Promise<ProfileData> => {
       skills: skillsFor(expSkillRows, exp.id),
       media: mediaFor(mediaRows, "experience", exp.id),
     })),
-    projects: projectRows.map((proj) => ({
-      ...proj,
-      skills: skillsFor(projSkillRows, proj.id),
-      media: mediaFor(mediaRows, "project", proj.id),
+    projects: allProjects.filter((proj) => proj.courseId === null),
+    courses: courseRows.map((course) => ({
+      ...course,
+      projects: allProjects.filter((proj) => proj.courseId === course.id),
     })),
   };
 });

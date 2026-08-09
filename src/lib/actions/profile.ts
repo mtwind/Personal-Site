@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
   about,
   contact,
+  courses,
   experienceSkills,
   experiences,
   media,
@@ -24,6 +25,7 @@ import {
   idSchema,
   parseAboutForm,
   parseContactForm,
+  parseCourseForm,
   parseExperienceForm,
   parseProjectForm,
   type ActionResult,
@@ -302,5 +304,53 @@ export async function deleteProject(rawId: string): Promise<ActionResult> {
   return runMutation(async () => {
     await deleteOwnedMedia("project", id.data);
     await db.delete(projects).where(eq(projects.id, id.data));
+  });
+}
+
+export async function createCourse(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = parseCourseForm(formData);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  return runMutation(async () => {
+    await db.insert(courses).values(parsed.data);
+  });
+}
+
+export async function updateCourse(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const id = idSchema.safeParse(formData.get("id"));
+  if (!id.success) return { ok: false, error: "Invalid course id" };
+
+  const parsed = parseCourseForm(formData);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  return runMutation(async () => {
+    await db
+      .update(courses)
+      .set({ ...parsed.data, updatedAt: new Date() })
+      .where(eq(courses.id, id.data));
+  });
+}
+
+/** Deletes the course AND its nested projects (FK cascade), including
+ *  their media rows and uploaded files. */
+export async function deleteCourse(rawId: string): Promise<ActionResult> {
+  const id = idSchema.safeParse(rawId);
+  if (!id.success) return { ok: false, error: "Invalid course id" };
+
+  return runMutation(async () => {
+    const owned = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.courseId, id.data));
+    for (const project of owned) {
+      await deleteOwnedMedia("project", project.id);
+    }
+    await db.delete(courses).where(eq(courses.id, id.data));
   });
 }

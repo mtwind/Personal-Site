@@ -30,11 +30,17 @@ delivery status is:
   meeting link, exit survey → `feedback_submissions` + optional Resend
   email. Editor-only "Google" pill in the homepage header links to it.
 - ✅ Month/year date pickers; dates stored pinned to the 1st
+- ✅ Feedback admin view at `/admin/feedback` (editor-only, 404 for
+  everyone else; "Feedback" footer link appears when signed in as editor)
+- ✅ Coursework section: expandable course rows (name, number, optional
+  semester) with projects nested under each course (`projects.course_id`;
+  course projects are excluded from the Projects grid; deleting a course
+  deletes its projects)
+- ✅ `/login`, `/auth/error`, and the Google sign-in button restyled to
+  Editorial Noir; `/designs/*` preview pages deleted
 - 🔲 **Phase 3 (not started): Google Calendar booking** — real slot
   picker for the meeting card and the exit-survey "open to a call" flow
 - 🔲 **Vercel deploy (deliberately last)** — nothing deployed yet
-- 🔲 Design exploration remnants: `/designs/*` preview pages (B2–F3)
-  still exist, noindex'd; delete once the design is final
 
 ## New-device setup
 
@@ -81,7 +87,7 @@ which prints the existing URL.
 
 - `src/app/page.tsx` — homepage (server): data load, edit-mode cookie, ghost, header
 - `src/app/match/[slug]/page.tsx` — hidden page route (404s wrong slugs, noindex)
-- `src/app/designs/*` — throwaway design previews (B2–F3)
+- `src/app/admin/feedback/page.tsx` — editor-only feedback list (404 otherwise)
 - `src/app/api/skills/search` + `src/app/api/companies/search` — autocomplete endpoints
 - `src/components/profile/*` — public view components (E3 styled)
 - `src/components/edit/*` — edit-mode forms, pickers, uploaders
@@ -126,11 +132,7 @@ which prints the existing URL.
    owner refresh token server-side, build a freeBusy-based slot picker,
    wire it into the match page's meeting card + exit-survey call flow,
    and record `booked_event_id` on `feedback_submissions`.
-2. **Feedback admin view** (small): editor-only list of
-   `feedback_submissions` — currently readable only via SQL.
-3. **Cleanup before deploy**: delete `/designs/*` once the design is
-   final; consider restyling `/login` to match E3.
-4. **Deploy to Vercel** (task the user wants LAST): connect repo, set
+2. **Deploy to Vercel** (task the user wants LAST): connect repo, set
    all env vars (switch `DATABASE_URL` to the transaction pooler, port
    6543 — the driver already sets `prepare: false`), add the production
    URL to Supabase auth redirect allowlist and Google OAuth authorized

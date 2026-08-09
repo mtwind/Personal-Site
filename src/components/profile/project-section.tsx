@@ -48,7 +48,7 @@ export function ProjectSection({
   return (
     <Section id="projects" title="Projects">
       {projects.length > 0 ? (
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+        <div className="space-y-4">
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}

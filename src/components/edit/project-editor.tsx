@@ -25,10 +25,12 @@ import { SkillPickerField, toSkillSelections } from "./skill-picker-field";
 
 interface ProjectFormProps {
   project: ProjectWithRelations | null;
+  /** When set, the project is created under (or stays under) this course. */
+  courseId?: string | null;
   onClose: () => void;
 }
 
-function ProjectForm({ project, onClose }: ProjectFormProps) {
+export function ProjectForm({ project, courseId, onClose }: ProjectFormProps) {
   const action = project ? updateProject : createProject;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     action,
@@ -40,6 +42,9 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
   }, [state, onClose]);
 
   const idSuffix = project?.id ?? "new";
+  // Editing must preserve an existing course link — omitting the field
+  // would detach the project from its course on save.
+  const courseIdValue = project?.courseId ?? courseId ?? null;
 
   return (
     <form
@@ -47,6 +52,9 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
       className="space-y-4 rounded-xl border border-(--line) bg-(--hover-bg) p-4"
     >
       {project ? <input type="hidden" name="id" value={project.id} /> : null}
+      {courseIdValue ? (
+        <input type="hidden" name="courseId" value={courseIdValue} />
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Project name" htmlFor={`proj-name-${idSuffix}`}>
           <input
@@ -104,7 +112,7 @@ function ProjectForm({ project, onClose }: ProjectFormProps) {
   );
 }
 
-function ProjectItem({ project }: { project: ProjectWithRelations }) {
+export function ProjectItem({ project }: { project: ProjectWithRelations }) {
   const [editing, setEditing] = useState(false);
   const [isDeleting, startDelete] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -152,7 +160,7 @@ export function EditableProjects({
     <Section id="projects" title="Projects">
       <div className="space-y-6">
         {projects.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4">
             {projects.map((project) => (
               <ProjectItem key={project.id} project={project} />
             ))}

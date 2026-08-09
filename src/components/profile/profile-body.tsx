@@ -5,6 +5,7 @@ import { useEditMode } from "@/components/edit/edit-mode";
 import type { ProfileData } from "@/lib/profile-data";
 import { AboutSection } from "./about-section";
 import { ContactSection } from "./contact-section";
+import { CourseworkSection } from "./coursework-section";
 import { ExperienceSection } from "./experience-section";
 import { ProjectSection } from "./project-section";
 
@@ -26,6 +27,7 @@ export function ProfileBody({ profile, isEditor }: ProfileBodyProps) {
       <AboutSection about={profile.about} />
       <ExperienceSection experiences={profile.experiences} />
       <ProjectSection projects={profile.projects} />
+      <CourseworkSection courses={profile.courses} />
       <ContactSection contact={profile.contact} />
     </>
   );

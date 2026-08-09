@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "#about", label: "About" },
   { href: "#experience", label: "Experience" },
   { href: "#projects", label: "Projects" },
+  { href: "#coursework", label: "Coursework" },
   { href: "#contact", label: "Contact" },
 ];
 
@@ -74,7 +75,17 @@ export function SiteFooter({ name, auth }: SiteHeaderProps) {
           © {new Date().getFullYear()} {name}
         </span>
         {auth.email ? (
-          <SignOutButton />
+          <span className="flex items-center gap-4">
+            {auth.isEditor ? (
+              <Link
+                href="/admin/feedback"
+                className="text-(--accent) underline-offset-2 hover:underline"
+              >
+                Feedback
+              </Link>
+            ) : null}
+            <SignOutButton />
+          </span>
         ) : (
           <Link
             href="/login"

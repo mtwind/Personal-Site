@@ -41,6 +41,7 @@ export const mediaImageSchema = z.object({
 
 export const contactSchema = z.object({
   linkedinUrl: z.url("LinkedIn must be a valid URL").nullable(),
+  githubUrl: z.url("GitHub must be a valid URL").nullable(),
   phone: z.string().max(30).nullable(),
   email: z.email("Invalid email").nullable(),
   showPhone: z.boolean(),
@@ -105,11 +106,18 @@ function normalizeDomain(value: FormDataEntryValue | null): string | null {
 
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
+  courseId: z.uuid().nullable(),
   startDate: z.iso.date().nullable(),
   endDate: z.iso.date().nullable(),
   repoUrl: z.url("Repo link must be a valid URL").nullable(),
   bullets: z.array(z.string().max(500)).max(20),
   skills: z.array(skillSelectionSchema).max(30),
+});
+
+export const courseSchema = z.object({
+  name: z.string().min(1, "Course name is required").max(200),
+  courseNumber: z.string().min(1, "Course number is required").max(50),
+  semester: z.string().max(50).nullable(),
 });
 
 export const idSchema = z.uuid();
@@ -118,6 +126,7 @@ export type AboutInput = z.infer<typeof aboutSchema>;
 export type ContactInput = z.infer<typeof contactSchema>;
 export type ExperienceInput = z.infer<typeof experienceSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
+export type CourseInput = z.infer<typeof courseSchema>;
 
 export function parseAboutForm(formData: FormData) {
   return aboutSchema.safeParse({
@@ -147,6 +156,7 @@ export function parseMediaImageForm(formData: FormData) {
 export function parseContactForm(formData: FormData) {
   return contactSchema.safeParse({
     linkedinUrl: emptyToNull(formData.get("linkedinUrl")),
+    githubUrl: emptyToNull(formData.get("githubUrl")),
     phone: emptyToNull(formData.get("phone")),
     email: emptyToNull(formData.get("email")),
     showPhone: formData.get("showPhone") === "on",
@@ -169,11 +179,20 @@ export function parseExperienceForm(formData: FormData) {
 export function parseProjectForm(formData: FormData) {
   return projectSchema.safeParse({
     name: requiredString(formData.get("name")),
+    courseId: emptyToNull(formData.get("courseId")),
     startDate: normalizeMonth(formData.get("startDate")),
     endDate: normalizeMonth(formData.get("endDate")),
     repoUrl: emptyToNull(formData.get("repoUrl")),
     bullets: bulletList(formData),
     skills: parseJsonField(formData.get("skills")),
+  });
+}
+
+export function parseCourseForm(formData: FormData) {
+  return courseSchema.safeParse({
+    name: requiredString(formData.get("name")),
+    courseNumber: requiredString(formData.get("courseNumber")),
+    semester: emptyToNull(formData.get("semester")),
   });
 }
 

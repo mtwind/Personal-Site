@@ -101,6 +101,16 @@ function ContactForm({
           className={inputClass}
         />
       </Field>
+      <Field label="GitHub URL" htmlFor="contact-github">
+        <input
+          id="contact-github"
+          name="githubUrl"
+          type="url"
+          defaultValue={contact?.githubUrl ?? ""}
+          placeholder="https://github.com/…"
+          className={inputClass}
+        />
+      </Field>
       <Field label="Email" htmlFor="contact-email">
         <input
           id="contact-email"

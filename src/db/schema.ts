@@ -47,9 +47,27 @@ export const experiences = pgTable("experiences", {
     .defaultNow(),
 });
 
+/** College coursework; projects can nest under a course. */
+export const courses = pgTable("courses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  /** e.g. "CS 4780". */
+  courseNumber: text("course_number").notNull(),
+  /** Free-form, e.g. "Fall 2024"; null = unspecified. */
+  semester: text("semester"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** When set, the project lists under this course, not under Projects. */
+  courseId: uuid("course_id").references(() => courses.id, {
+    onDelete: "cascade",
+  }),
   startDate: date("start_date"),
   endDate: date("end_date"),
   bullets: jsonb("bullets").$type<string[]>().notNull().default([]),
@@ -162,6 +180,7 @@ export const feedbackSubmissions = pgTable("feedback_submissions", {
 export const contact = pgTable("contact", {
   id: uuid("id").primaryKey().defaultRandom(),
   linkedinUrl: text("linkedin_url"),
+  githubUrl: text("github_url"),
   phone: text("phone"),
   email: text("email"),
   resumeUrl: text("resume_url"),
