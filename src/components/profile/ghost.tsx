@@ -19,40 +19,41 @@ interface GhostRowSpec {
 }
 
 /**
- * Five drifting bands behind the page. Every mark is an unfilled hairline
- * in --ghost-stroke, so the whole background is one colour that follows
- * the theme, and the monogram sits in the band mix rather than apart.
+ * Five drifting bands behind the page, one mark each, alternating
+ * direction down the page. Every mark is an unfilled hairline in
+ * --ghost-stroke, so the whole background is one colour that follows the
+ * theme.
  */
 const ROWS: GhostRowSpec[] = [
   {
     direction: "ltr",
     duration: 95,
     size: "clamp(88px, 13vw, 150px)",
-    items: [MONOGRAM, "purdue", "graduation", "code"],
+    items: [MONOGRAM],
   },
   {
     direction: "rtl",
     duration: 130,
     size: "clamp(78px, 11vw, 132px)",
-    items: ["chelsea", "soccer", "trophy"],
+    items: ["chelsea"],
   },
   {
     direction: "ltr",
-    duration: 110,
-    size: "clamp(84px, 12vw, 142px)",
-    items: ["ski", "mountain", "train"],
+    duration: 85,
+    size: "clamp(74px, 10vw, 124px)",
+    items: ["cards"],
   },
   {
     direction: "rtl",
-    duration: 85,
-    size: "clamp(74px, 10vw, 124px)",
-    items: ["cards", "trophy", "plane", "skyline"],
+    duration: 110,
+    size: "clamp(84px, 12vw, 142px)",
+    items: ["ski"],
   },
   {
     direction: "ltr",
     duration: 145,
     size: "clamp(80px, 11vw, 136px)",
-    items: [MONOGRAM, "soccer", "ski", "cards"],
+    items: ["purdue"],
   },
 ];
 
