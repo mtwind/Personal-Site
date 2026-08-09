@@ -13,7 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const { about } = await getProfileData();
   const name = about?.name || "Personal Site";
   return {
-    title: name,
+    // Matches the tab title in the layout, with the name coming from the
+    // profile rather than being hardcoded.
+    title: `${name} | SWE`,
     description: about?.headline || `${name} — profile, experience, projects`,
   };
 }
