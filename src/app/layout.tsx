@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Personal Site",
+  title: "Matthew Wind | SWE",
   description: "Profile, work experience, and projects",
 };
 
