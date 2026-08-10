@@ -9,10 +9,16 @@ import {
   type MatchReferenceIndex,
   type ReferenceTarget,
 } from "@/lib/match-references";
+import { searchReferences } from "@/lib/match-search";
 import type { TeamMatchPage } from "@/lib/team-match-data";
 import { ExitDialog } from "./exit-dialog";
 import { MatchEditorForm } from "./match-editor-form";
 import { MatchRichText } from "./match-rich-text";
+import {
+  MatchSearchBar,
+  MatchSearchResults,
+  useMatchSearch,
+} from "./match-search";
 import { ReferencePane } from "./reference-pane";
 
 export interface MatchPageProps {
@@ -85,6 +91,12 @@ export function MatchPageClient({
     [referenceIndex],
   );
 
+  const search = useMatchSearch();
+  const hits = useMemo(
+    () => (search.query ? searchReferences(referenceIndex, search.query) : []),
+    [referenceIndex, search.query],
+  );
+
   /**
    * Open a target in the pane. Browser-like: an entry already open is
    * brought to the front rather than duplicated into a second tab.
@@ -138,7 +150,10 @@ export function MatchPageClient({
       <FloatingOrbs />
 
       <header className="relative z-10 border-b border-[#dadce0] bg-white/85 backdrop-blur">
-        <div className="h-[3px] w-full" style={{ background: FOUR_COLOR_GRADIENT }} />
+        <div
+          className="h-[3px] w-full"
+          style={{ background: FOUR_COLOR_GRADIENT }}
+        />
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1" aria-hidden>
@@ -184,112 +199,117 @@ export function MatchPageClient({
           />
         ) : (
           <>
-            <div className="flex w-fit items-center gap-3 rounded-full border border-[#dadce0] bg-white px-5 py-2.5 shadow-sm">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#4285F4"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                className="h-4.5 w-4.5"
-                aria-hidden
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.8-3.8" />
-              </svg>
-              <span className="text-[15px] text-[#202124] lowercase">
-                {ownerName} · team matching
-              </span>
-            </div>
-
-            <h1 className="mt-6 text-[32px] leading-tight font-normal text-[#202124]">
-              {page.headline || "Team Matching Profile"}
-            </h1>
-            <div
-              className="mt-3 h-1 w-28 rounded-full"
-              style={{ background: FOUR_COLOR_GRADIENT }}
-              aria-hidden
+            <MatchSearchBar
+              ownerName={ownerName}
+              draft={search.draft}
+              onDraftChange={search.setDraft}
+              onSubmit={search.submit}
+              onClear={search.clear}
+              hasQuery={search.query !== ""}
             />
-            {page.intro ? (
-              <p className="mt-5 max-w-[65ch] text-[16px] leading-7 whitespace-pre-line">
-                <MatchRichText
-                  text={page.intro}
-                  resolver={resolver}
-                  onOpen={openRef}
-                />
-              </p>
-            ) : null}
 
-            <div className="mt-8 space-y-4">
-              {page.sections.map((section, index) => (
-                <section key={index} className={CARD}>
-                  <h2 className="flex items-center gap-2.5 text-lg font-medium text-[#202124]">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{
-                        background: GOOGLE_DOTS[index % GOOGLE_DOTS.length],
-                      }}
-                      aria-hidden
-                    />
-                    {section.title}
-                  </h2>
-                  <p className="mt-2 text-[15px] leading-7 whitespace-pre-line">
+            {search.query ? (
+              <MatchSearchResults
+                query={search.query}
+                hits={hits}
+                onOpen={openRef}
+                onClear={search.clear}
+              />
+            ) : (
+              <>
+                <h1 className="mt-6 text-[32px] leading-tight font-normal text-[#202124]">
+                  {page.headline || "Team Matching Profile"}
+                </h1>
+                <div
+                  className="mt-3 h-1 w-28 rounded-full"
+                  style={{ background: FOUR_COLOR_GRADIENT }}
+                  aria-hidden
+                />
+                {page.intro ? (
+                  <p className="mt-5 max-w-[65ch] text-[16px] leading-7 whitespace-pre-line">
                     <MatchRichText
-                      text={section.body}
+                      text={page.intro}
                       resolver={resolver}
                       onOpen={openRef}
                     />
                   </p>
-                </section>
-              ))}
+                ) : null}
 
-              {page.resumeUrl ? (
-                <section
-                  className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
-                >
-                  <div>
-                    <h2 className="text-lg font-medium text-[#202124]">
-                      Résumé
-                    </h2>
-                    <p className="mt-1 text-sm text-[#5f6368]">
-                      Team-matching edition — more detail than the public one.
-                    </p>
-                  </div>
-                  <a
-                    href={page.resumeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1765cc]"
-                  >
-                    View PDF
-                  </a>
-                </section>
-              ) : null}
+                <div className="mt-8 space-y-4">
+                  {page.sections.map((section, index) => (
+                    <section key={index} className={CARD}>
+                      <h2 className="flex items-center gap-2.5 text-lg font-medium text-[#202124]">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{
+                            background: GOOGLE_DOTS[index % GOOGLE_DOTS.length],
+                          }}
+                          aria-hidden
+                        />
+                        {section.title}
+                      </h2>
+                      <p className="mt-2 text-[15px] leading-7 whitespace-pre-line">
+                        <MatchRichText
+                          text={section.body}
+                          resolver={resolver}
+                          onOpen={openRef}
+                        />
+                      </p>
+                    </section>
+                  ))}
 
-              {meetingHref ? (
-                <section
-                  className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
-                >
-                  <div>
-                    <h2 className="text-lg font-medium text-[#202124]">
-                      Want to talk?
-                    </h2>
-                    <p className="mt-1 text-sm text-[#5f6368]">
-                      I&apos;m happy to chat about teams, roles, or anything on
-                      this page.
-                    </p>
-                  </div>
-                  <a
-                    href={meetingHref}
-                    target={meetingHref.startsWith("http") ? "_blank" : undefined}
-                    rel="noopener noreferrer"
-                    className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1765cc]"
-                  >
-                    Set up a meeting
-                  </a>
-                </section>
-              ) : null}
-            </div>
+                  {page.resumeUrl ? (
+                    <section
+                      className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
+                    >
+                      <div>
+                        <h2 className="text-lg font-medium text-[#202124]">
+                          Résumé
+                        </h2>
+                        <p className="mt-1 text-sm text-[#5f6368]">
+                          Team-matching edition — more detail than the public
+                          one.
+                        </p>
+                      </div>
+                      <a
+                        href={page.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1765cc]"
+                      >
+                        View PDF
+                      </a>
+                    </section>
+                  ) : null}
+
+                  {meetingHref ? (
+                    <section
+                      className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
+                    >
+                      <div>
+                        <h2 className="text-lg font-medium text-[#202124]">
+                          Want to talk?
+                        </h2>
+                        <p className="mt-1 text-sm text-[#5f6368]">
+                          I&apos;m happy to chat about teams, roles, or anything
+                          on this page.
+                        </p>
+                      </div>
+                      <a
+                        href={meetingHref}
+                        target={
+                          meetingHref.startsWith("http") ? "_blank" : undefined
+                        }
+                        rel="noopener noreferrer"
+                        className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1765cc]"
+                      >
+                        Set up a meeting
+                      </a>
+                    </section>
+                  ) : null}
+                </div>
+              </>
+            )}
 
             <div className="mt-12 flex justify-center border-t border-[#dadce0] pt-8">
               <button
