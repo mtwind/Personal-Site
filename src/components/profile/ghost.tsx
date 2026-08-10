@@ -1,4 +1,8 @@
-import { GHOST_MARKS, type GhostMarkId } from "./ghost-marks";
+import {
+  GHOST_MARKS,
+  type GhostMark,
+  type GhostMarkId,
+} from "./ghost-marks";
 
 interface GhostBackgroundProps {
   /** Usually the owner's initials, e.g. "MW". */
@@ -90,13 +94,28 @@ export function GhostBackground({ initials }: GhostBackgroundProps) {
         style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
       >
         <defs>
-          {USED_MARKS.map((id) => (
-            <symbol key={id} id={`ghost-${id}`} viewBox={GHOST_MARKS[id].viewBox}>
-              {GHOST_MARKS[id].d.map((d, i) => (
-                <path key={i} d={d} vectorEffect="non-scaling-stroke" />
-              ))}
-            </symbol>
-          ))}
+          {USED_MARKS.map((id) => {
+            // Widened from the `as const` literal, which drops `opaque` on
+            // the marks that don't declare it.
+            const mark: GhostMark = GHOST_MARKS[id];
+            return (
+              <symbol key={id} id={`ghost-${id}`} viewBox={mark.viewBox}>
+                {mark.d.map((d, i) => (
+                  <path
+                    key={i}
+                    d={d}
+                    vectorEffect="non-scaling-stroke"
+                    // Opaque paths are filled with the page background so
+                    // they hide what they overlap — without it the cards
+                    // read as two outlines crossing, not a stack.
+                    style={
+                      mark.opaque?.includes(i) ? { fill: "var(--bg)" } : undefined
+                    }
+                  />
+                ))}
+              </symbol>
+            );
+          })}
         </defs>
       </svg>
 

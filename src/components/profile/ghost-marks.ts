@@ -12,6 +12,9 @@
 export interface GhostMark {
   viewBox: string;
   d: string[];
+  /** Indices of paths filled with the page background, to occlude what
+   *  sits behind them (the front card in the cards mark). */
+  opaque?: number[];
 }
 
 export const GHOST_MARKS = {
@@ -30,8 +33,11 @@ export const GHOST_MARKS = {
   cards: {
     viewBox: "0 0 24 24",
     d: [
-      "m3.6 7.2 7.1-3.1a1 1 0 0 1 1.3.5l5 12a1 1 0 0 1-.6 1.2L9.3 21a1 1 0 0 1-1.3-.5l-5-12a1 1 0 0 1 .6-1.3M15 4h1a1 1 0 0 1 1 1v3.5M20 6l.8.3a1 1 0 0 1 .5 1.3L19 13",
+      "m13.46 4.16 5.57 1.6a1.6 1.6 0 0 1 1.1 1.98l-2.81 9.8a1.6 1.6 0 0 1-1.98 1.1l-5.57-1.6a1.6 1.6 0 0 1-1.1-1.98l2.81-9.8a1.6 1.6 0 0 1 1.98-1.1",
+      "m5.99 6.54 5.73-.91a1.6 1.6 0 0 1 1.83 1.33l1.6 10.07a1.6 1.6 0 0 1-1.34 1.83l-5.73.91a1.6 1.6 0 0 1-1.83-1.33L4.65 8.37A1.6 1.6 0 0 1 6 6.54",
+      "m9.45 9.86 1.78 1.17q.33.23.63.48a1.8 1.8 0 0 1 .43 2.19c-.3.55-.96.77-1.5.48l.04.32.47.9-1.9.3.17-1-.05-.32a1.15 1.15 0 0 1-1.58 0 1.8 1.8 0 0 1-.27-2.21l.45-.65z",
     ],
+    opaque: [1],
   },
   ski: {
     viewBox: "0 0 256 256",
