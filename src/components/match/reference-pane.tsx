@@ -99,10 +99,11 @@ export function ReferencePane({
 
   return (
     <>
+      {/* A light Google-blue wash, so the page behind reads as set back. */}
       <div
         onClick={onClose}
         aria-hidden
-        className="fixed inset-0 z-40 bg-black/30 [animation:pane-fade_.2s_ease-out]"
+        className="fixed inset-0 z-40 bg-[#1a73e8]/10 backdrop-blur-[1.5px] [animation:pane-fade_.2s_ease-out]"
       />
       <div
         ref={paneRef}
@@ -112,12 +113,42 @@ export function ReferencePane({
         tabIndex={-1}
         className="match-pane fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col rounded-t-2xl bg-white shadow-2xl outline-none md:inset-x-auto md:top-0 md:right-0 md:bottom-0 md:h-full md:w-[27rem] md:max-w-[92vw] md:rounded-none md:border-l md:border-[#dadce0]"
       >
-        {/* Bottom-sheet grab handle; redundant on the desktop panel. */}
-        <div className="flex justify-center pt-2.5 pb-1 md:hidden" aria-hidden>
-          <span className="h-1 w-10 rounded-full bg-[#dadce0]" />
-        </div>
+        {/* Bottom-sheet grab handle — the sheet's collapse affordance. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse panel"
+          title="Collapse"
+          className="group flex w-full shrink-0 cursor-pointer justify-center pt-3 pb-2 md:hidden"
+        >
+          <span className="h-1.5 w-11 rounded-full bg-[#bdc1c6] transition-colors group-hover:bg-[#80868b] group-active:bg-[#5f6368]" />
+        </button>
 
-        <header className="flex items-center gap-2 border-b border-[#dadce0] px-4 py-3">
+        {/* Desktop equivalent: a pull-tab on the panel's leading edge. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse panel"
+          title="Collapse"
+          className="group absolute top-0 left-0 hidden h-full w-5 cursor-pointer items-center justify-center md:flex"
+        >
+          <span className="flex h-14 w-[18px] items-center justify-center rounded-r-md border border-l-0 border-[#dadce0] bg-[#f1f3f4] transition-colors group-hover:border-[#1a73e8] group-hover:bg-[#e8f0fe] group-active:bg-[#d2e3fc]">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5 text-[#5f6368] transition-colors group-hover:text-[#1a73e8]"
+              aria-hidden
+            >
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </span>
+        </button>
+
+        <header className="flex items-center gap-2 border-b border-[#dadce0] px-4 py-3 md:pl-8">
           {stack.length > 1 ? (
             <button
               type="button"
@@ -172,7 +203,7 @@ export function ReferencePane({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:pl-8">
           {project ? (
             <ProjectView
               project={project}
