@@ -76,6 +76,7 @@ export const experienceSchema = z.object({
     .nullable(),
   companyLogoUrl: z.url("Invalid logo URL").nullable(),
   title: z.string().min(1, "Title is required").max(200),
+  headline: z.string().max(200),
   startDate: z.iso.date("Start date is required"),
   endDate: z.iso.date().nullable(),
   bullets: z.array(z.string().max(500)).max(20),
@@ -106,6 +107,7 @@ function normalizeDomain(value: FormDataEntryValue | null): string | null {
 
 export const projectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(200),
+  headline: z.string().max(200),
   courseId: z.uuid().nullable(),
   startDate: z.iso.date().nullable(),
   endDate: z.iso.date().nullable(),
@@ -117,6 +119,7 @@ export const projectSchema = z.object({
 export const courseSchema = z.object({
   name: z.string().min(1, "Course name is required").max(200),
   courseNumber: z.string().min(1, "Course number is required").max(50),
+  headline: z.string().max(200),
   semester: z.string().max(50).nullable(),
 });
 
@@ -169,6 +172,7 @@ export function parseExperienceForm(formData: FormData) {
     companyDomain: normalizeDomain(formData.get("companyDomain")),
     companyLogoUrl: emptyToNull(formData.get("companyLogoUrl")),
     title: requiredString(formData.get("title")),
+    headline: requiredString(formData.get("headline")),
     startDate: normalizeMonth(formData.get("startDate")) ?? "",
     endDate: normalizeMonth(formData.get("endDate")),
     bullets: bulletList(formData),
@@ -179,6 +183,7 @@ export function parseExperienceForm(formData: FormData) {
 export function parseProjectForm(formData: FormData) {
   return projectSchema.safeParse({
     name: requiredString(formData.get("name")),
+    headline: requiredString(formData.get("headline")),
     courseId: emptyToNull(formData.get("courseId")),
     startDate: normalizeMonth(formData.get("startDate")),
     endDate: normalizeMonth(formData.get("endDate")),
@@ -192,6 +197,7 @@ export function parseCourseForm(formData: FormData) {
   return courseSchema.safeParse({
     name: requiredString(formData.get("name")),
     courseNumber: requiredString(formData.get("courseNumber")),
+    headline: requiredString(formData.get("headline")),
     semester: emptyToNull(formData.get("semester")),
   });
 }
