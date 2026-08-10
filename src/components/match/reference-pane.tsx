@@ -383,7 +383,7 @@ function TabStrip({
             return (
               <span
                 key={key}
-                className={`group flex w-40 shrink-0 items-center gap-1 rounded-t-lg pr-1 pl-2 transition-colors ${
+                className={`match-tab group flex items-center gap-1 rounded-t-lg pr-1 pl-2 transition-colors ${
                   isActive
                     ? "bg-white"
                     : "bg-[#cfd3d8] hover:bg-[#dfe2e6] active:bg-[#e8eaed]"

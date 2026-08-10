@@ -113,10 +113,30 @@ body * {
   }
 }
 
-/* Tab strip: tabs keep their width and the strip scrolls once crowded,
-   rather than squeezing every tab down to an unreadable sliver. The
-   native bar is hidden because platforms disagree about whether it is
-   an overlay — the strip draws its own, so it is always visible. */
+/* Tab strip: tabs share the width and shrink as more open, but stop at
+   the favicon plus about five characters of title. Past that the strip
+   scrolls rather than squeezing them into unreadable slivers.
+
+   The floor is spelled out in its parts so it stays honest if the tab's
+   padding or icon size changes: left padding, favicon, its gap, five
+   characters at the 12px label size, the gap before the close button,
+   and the close button with its right padding.
+
+   0.66em per character is sized off the wide end of the alphabet (M, W,
+   m) rather than the average, so titles like "Memory Allocator" still
+   show five characters and not three. */
+.match-tab {
+  --tab-label-min: calc(5 * 0.66 * 12px);
+  flex: 1 1 0;
+  min-width: calc(
+    0.5rem + 0.875rem + 0.375rem + var(--tab-label-min) + 0.25rem + 1rem +
+      0.25rem
+  );
+  max-width: 10rem;
+}
+
+/* The native bar is hidden because platforms disagree about whether it
+   is an overlay — the strip draws its own, so it is always visible. */
 .match-tabstrip {
   scrollbar-width: none;
 }
