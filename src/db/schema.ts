@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -181,6 +182,47 @@ export const feedbackSubmissions = pgTable("feedback_submissions", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Searches run against the team-matching page.
+ *
+ * Serves two jobs at once: it is the rate-limit ledger for the public
+ * ask endpoint, and it is the record of what visitors actually wanted to
+ * know — the most useful signal the search feature produces.
+ *
+ * No public RLS read policy: rows carry visitor questions and are only
+ * ever written over the direct connection. Editors read them in admin.
+ */
+export const searchQueries = pgTable(
+  "search_queries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    query: text("query").notNull(),
+    /** Generated answer; null when the request never reached the model. */
+    answer: text("answer"),
+    /**
+     * Salted SHA-256 of the client IP. Enough to rate-limit a repeat
+     * caller, not enough to identify one — the raw address is never
+     * written down.
+     */
+    ipHash: text("ip_hash").notNull(),
+    /** 'ok' | 'rate_limited' | 'unavailable' | 'error' */
+    outcome: text("outcome").notNull().default("ok"),
+    model: text("model"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    /** Cached prompt tokens, so cache effectiveness stays observable. */
+    cachedTokens: integer("cached_tokens"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // Per-IP window lookups and the global daily count both read this.
+    index("search_queries_ip_created_idx").on(table.ipHash, table.createdAt),
+    index("search_queries_created_idx").on(table.createdAt),
+  ],
+);
 
 /** Singleton row: contact links + resume. */
 export const contact = pgTable("contact", {

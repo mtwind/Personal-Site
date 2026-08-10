@@ -57,6 +57,20 @@
       "when": 1786380483141,
       "tag": "0007_entry_headlines",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786403411109,
+      "tag": "0008_search_queries",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786403411110,
+      "tag": "0009_search_queries_rls",
+      "breakpoints": true
     }
   ]
 }
