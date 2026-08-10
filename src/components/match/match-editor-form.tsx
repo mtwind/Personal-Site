@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 
 import { saveTeamMatchPage } from "@/lib/actions/team-match";
 import type { ActionResult } from "@/lib/actions/validation";
+import type { MatchReferenceIndex } from "@/lib/match-references";
 import type { TeamMatchPage } from "@/lib/team-match-data";
 import { MAX_PDF_LABEL, isPdfTooLarge } from "@/lib/upload-limits";
 import {
@@ -22,11 +23,16 @@ interface SectionRow {
 
 interface MatchEditorFormProps {
   page: TeamMatchPage;
+  referenceIndex: MatchReferenceIndex;
   onClose: () => void;
 }
 
 /** Editor-only form for the hidden page, incl. its own résumé upload. */
-export function MatchEditorForm({ page, onClose }: MatchEditorFormProps) {
+export function MatchEditorForm({
+  page,
+  referenceIndex,
+  onClose,
+}: MatchEditorFormProps) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     saveTeamMatchPage,
     null,
@@ -78,6 +84,8 @@ export function MatchEditorForm({ page, onClose }: MatchEditorFormProps) {
           className={inputClass}
         />
       </Field>
+
+      <ReferenceHelp index={referenceIndex} />
 
       <Field label="Sections" htmlFor="sections">
         <input type="hidden" name="sections" value={sectionsJson} />
@@ -210,5 +218,69 @@ export function MatchEditorForm({ page, onClose }: MatchEditorFormProps) {
         <CancelButton onClick={onClose} />
       </div>
     </form>
+  );
+}
+
+/**
+ * Cheat sheet for inline references. The intro and every section body
+ * accept these tokens; unrecognized names quietly render as plain text,
+ * so a typo degrades instead of leaking syntax onto the page.
+ */
+function ReferenceHelp({ index }: { index: MatchReferenceIndex }) {
+  const sampleProject = index.projects[0]?.name ?? "Simple C Compiler";
+
+  return (
+    <details className="rounded-lg border border-(--line) bg-(--bg) px-4 py-2.5 font-sans text-xs text-(--dim)">
+      <summary className="cursor-pointer font-medium text-(--text)">
+        Linking projects and skills in your text
+      </summary>
+      <div className="mt-3 space-y-3">
+        <p>
+          Mention a project or skill by name and readers can open it in a
+          side pane without leaving the page:
+        </p>
+        <ul className="space-y-1">
+          <li>
+            <code className="font-mono">[[project:{sampleProject}]]</code>
+          </li>
+          <li>
+            <code className="font-mono">[[skill:C]]</code>
+          </li>
+          <li>
+            <code className="font-mono">
+              [[project:{sampleProject}|my compiler]]
+            </code>{" "}
+            — custom link text
+          </li>
+        </ul>
+        <ReferenceNameList
+          label="Projects"
+          names={index.projects.map((project) => project.name)}
+        />
+        <ReferenceNameList
+          label="Skills"
+          names={index.skills.map((skill) => skill.name)}
+        />
+      </div>
+    </details>
+  );
+}
+
+function ReferenceNameList({
+  label,
+  names,
+}: {
+  label: string;
+  names: string[];
+}) {
+  if (names.length === 0) return null;
+
+  return (
+    <div>
+      <p className="font-medium text-(--text)">{label}</p>
+      <p className="mt-1 leading-5">
+        {[...names].sort((a, b) => a.localeCompare(b)).join(" · ")}
+      </p>
+    </div>
   );
 }

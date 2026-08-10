@@ -80,6 +80,32 @@ body * {
   to { transform: translate(48px, -36px) scale(1.14); }
 }
 
+/* Reference pane: a bottom sheet on mobile, a right-hand panel on desktop. */
+@keyframes pane-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pane-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes pane-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.match-pane {
+  animation: pane-in-bottom 0.28s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (min-width: 48rem) {
+  .match-pane {
+    animation-name: pane-in-right;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   body,
   body * {

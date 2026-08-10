@@ -1,17 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import {
+  createReferenceResolver,
+  type MatchReferenceIndex,
+  type ReferenceTarget,
+} from "@/lib/match-references";
 import type { TeamMatchPage } from "@/lib/team-match-data";
 import { ExitDialog } from "./exit-dialog";
 import { MatchEditorForm } from "./match-editor-form";
+import { MatchRichText } from "./match-rich-text";
+import { ReferencePane } from "./reference-pane";
 
 export interface MatchPageProps {
   page: TeamMatchPage;
   isEditor: boolean;
   ownerName: string;
   contactEmail: string | null;
+  /** Projects, experiences and skills that prose can reference inline. */
+  referenceIndex: MatchReferenceIndex;
   /** Roboto class from next/font, applied to this page only. */
   fontClass: string;
 }
@@ -56,10 +65,38 @@ export function MatchPageClient({
   isEditor,
   ownerName,
   contactEmail,
+  referenceIndex,
   fontClass,
 }: MatchPageProps) {
   const [editing, setEditing] = useState(false);
   const [exiting, setExiting] = useState(false);
+  /** Reference pane history; empty means the pane is closed. */
+  const [refStack, setRefStack] = useState<ReferenceTarget[]>([]);
+
+  const resolver = useMemo(
+    () => createReferenceResolver(referenceIndex),
+    [referenceIndex],
+  );
+
+  /** Opening from the prose starts a fresh trail. */
+  const openRef = useCallback((target: ReferenceTarget) => {
+    setRefStack([target]);
+  }, []);
+
+  /** Drilling in from inside the pane extends the trail. */
+  const pushRef = useCallback((target: ReferenceTarget) => {
+    setRefStack((stack) => {
+      const top = stack[stack.length - 1];
+      if (top && top.kind === target.kind && top.id === target.id) return stack;
+      return [...stack, target];
+    });
+  }, []);
+
+  const popRef = useCallback(() => {
+    setRefStack((stack) => stack.slice(0, -1));
+  }, []);
+
+  const closeRef = useCallback(() => setRefStack([]), []);
 
   const meetingHref =
     page.meetingUrl ??
@@ -113,7 +150,11 @@ export function MatchPageClient({
 
       <main className="relative z-10 mx-auto max-w-3xl px-5 py-10">
         {editing ? (
-          <MatchEditorForm page={page} onClose={() => setEditing(false)} />
+          <MatchEditorForm
+            page={page}
+            referenceIndex={referenceIndex}
+            onClose={() => setEditing(false)}
+          />
         ) : (
           <>
             <div className="flex w-fit items-center gap-3 rounded-full border border-[#dadce0] bg-white px-5 py-2.5 shadow-sm">
@@ -144,7 +185,11 @@ export function MatchPageClient({
             />
             {page.intro ? (
               <p className="mt-5 max-w-[65ch] text-[16px] leading-7 whitespace-pre-line">
-                {page.intro}
+                <MatchRichText
+                  text={page.intro}
+                  resolver={resolver}
+                  onOpen={openRef}
+                />
               </p>
             ) : null}
 
@@ -162,7 +207,11 @@ export function MatchPageClient({
                     {section.title}
                   </h2>
                   <p className="mt-2 text-[15px] leading-7 whitespace-pre-line">
-                    {section.body}
+                    <MatchRichText
+                      text={section.body}
+                      resolver={resolver}
+                      onOpen={openRef}
+                    />
                   </p>
                 </section>
               ))}
@@ -231,6 +280,16 @@ export function MatchPageClient({
           </>
         )}
       </main>
+
+      {refStack.length > 0 ? (
+        <ReferencePane
+          stack={refStack}
+          resolver={resolver}
+          onNavigate={pushRef}
+          onBack={popRef}
+          onClose={closeRef}
+        />
+      ) : null}
 
       {exiting ? <ExitDialog onDismiss={() => setExiting(false)} /> : null}
     </div>

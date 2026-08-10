@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { MatchPageClient } from "@/components/match/match-page";
 import { getAuthState } from "@/lib/auth";
+import { buildReferenceIndex } from "@/lib/match-references";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
 
@@ -35,6 +36,7 @@ export default async function MatchPage(props: PageProps<"/match/[slug]">) {
       isEditor={auth.isEditor}
       ownerName={profile.about?.name ?? "Matthew Wind"}
       contactEmail={profile.contact?.email ?? null}
+      referenceIndex={buildReferenceIndex(profile)}
       fontClass={roboto.className}
     />
   );
