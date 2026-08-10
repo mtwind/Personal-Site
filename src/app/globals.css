@@ -87,6 +87,14 @@ body * {
   to { transform: translate(48px, -36px) scale(1.14); }
 }
 
+/* Placeholder bars while the AI overview is still being generated. Pulses
+   between two visible greys — fading to zero would leave an empty card,
+   which reads as "broken" rather than "loading". */
+@keyframes match-shimmer {
+  from { background-color: #e8eaed; }
+  to { background-color: #f5f6f7; }
+}
+
 /* Reference pane: a bottom sheet on mobile, a right-hand panel on desktop. */
 @keyframes pane-fade {
   from { opacity: 0; }

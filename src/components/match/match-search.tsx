@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { ReferenceTarget } from "@/lib/match-references";
+import type { ReferenceResolver, ReferenceTarget } from "@/lib/match-references";
 import { matchRanges, type SearchHit } from "@/lib/match-search";
+import { MatchAiOverview } from "./match-ai-overview";
 
 const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
 
@@ -122,11 +123,15 @@ export function MatchSearchBar({
 export function MatchSearchResults({
   query,
   hits,
+  resolver,
+  aiEnabled,
   onOpen,
   onClear,
 }: {
   query: string;
   hits: SearchHit[];
+  resolver: ReferenceResolver;
+  aiEnabled: boolean;
   onOpen: (target: ReferenceTarget) => void;
   onClear: () => void;
 }) {
@@ -149,6 +154,10 @@ export function MatchSearchResults({
           Back to profile
         </button>
       </div>
+
+      {aiEnabled ? (
+        <MatchAiOverview query={query} resolver={resolver} onOpen={onOpen} />
+      ) : null}
 
       {hits.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-[#dadce0] bg-white p-6">

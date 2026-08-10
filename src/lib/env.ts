@@ -33,6 +33,17 @@ const serverEnvSchema = z.object({
   RESEND_FROM: z.string().optional(),
   /** Where feedback notifications go; falls back to the contact email. */
   NOTIFY_EMAIL: z.email().optional(),
+  /**
+   * Anthropic key — optional. Without it the search bar still works; the
+   * AI overview simply never appears, which is the intended degraded
+   * mode rather than an error.
+   */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  /**
+   * Salt for hashing visitor IPs in the rate-limit ledger. Optional, but
+   * without it hashes are guessable from an IP, so set it in production.
+   */
+  IP_HASH_SALT: z.string().optional(),
 });
 
 function formatEnvError(error: z.ZodError): string {
@@ -72,6 +83,8 @@ export function getServerEnv(): z.infer<typeof serverEnvSchema> {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_FROM: process.env.RESEND_FROM,
     NOTIFY_EMAIL: process.env.NOTIFY_EMAIL,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    IP_HASH_SALT: process.env.IP_HASH_SALT,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));

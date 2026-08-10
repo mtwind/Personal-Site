@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { MatchPageClient } from "@/components/match/match-page";
 import { getAuthState } from "@/lib/auth";
+import { getServerEnv } from "@/lib/env";
 import { buildReferenceIndex } from "@/lib/match-references";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
@@ -37,6 +38,10 @@ export default async function MatchPage(props: PageProps<"/match/[slug]">) {
       ownerName={profile.about?.name ?? "Matthew Wind"}
       contactEmail={profile.contact?.email ?? null}
       referenceIndex={buildReferenceIndex(profile)}
+      // Whether the overview can answer at all. Deciding here rather than
+      // in the browser means an unconfigured site never fires a request
+      // that can only come back 503.
+      aiEnabled={Boolean(getServerEnv().ANTHROPIC_API_KEY)}
       fontClass={roboto.className}
     />
   );
