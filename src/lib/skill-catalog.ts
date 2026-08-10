@@ -29,7 +29,9 @@ function scoreEntry(entry: CatalogEntry, query: string): number | null {
  */
 export function searchCatalog(rawQuery: string, limit = 12): CatalogEntry[] {
   const query = rawQuery.trim().toLowerCase();
-  if (query.length < 2) return [];
+  // One character is enough — single-letter languages ("C", "R") are
+  // otherwise unreachable, and exact/prefix ranking keeps them on top.
+  if (!query) return [];
 
   const scored: { entry: CatalogEntry; score: number }[] = [];
   for (const entry of catalog) {

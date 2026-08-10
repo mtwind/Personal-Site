@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Personal Site",
-  description: "Profile, work experience, and projects",
+  title: "Matthew Wind | SWE",
+  description: "Personal website for Matthew Wind, Software Engineer",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

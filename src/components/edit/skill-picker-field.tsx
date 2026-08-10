@@ -47,7 +47,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
   // Debounced catalog lookup; clearing happens in the change handler.
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) return;
+    if (!trimmed) return;
     const timer = setTimeout(() => {
       fetch(`/api/skills/search?q=${encodeURIComponent(trimmed)}`)
         .then((response) => response.json())
@@ -83,7 +83,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
     setSelected((current) => current.filter((item) => item.name !== name));
   }
 
-  const showDropdown = query.trim().length >= 2;
+  const showDropdown = query.trim().length > 0;
 
   return (
     <div ref={containerRef} className="space-y-2">
@@ -121,7 +121,7 @@ export function SkillPickerField({ initial }: SkillPickerFieldProps) {
           onChange={(event) => {
             const value = event.target.value;
             setQuery(value);
-            if (value.trim().length < 2) setResults([]);
+            if (!value.trim()) setResults([]);
           }}
           placeholder="Add a skill (React, Python, Figma…)"
           className={inputClass}

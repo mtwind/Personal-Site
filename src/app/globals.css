@@ -12,7 +12,8 @@
 :root {
   --bg: #f6f1e6;
   --bg-elev: #fffdf6;
-  --header-bg: rgba(246, 241, 230, 0.85);
+  /* Opaque: the sticky header must hide content scrolling under it. */
+  --header-bg: #f6f1e6;
   --title: #292019;
   --text: #57534e;
   --dim: #a8a29e;
@@ -26,7 +27,7 @@
 .dark {
   --bg: #121110;
   --bg-elev: #1c1a17;
-  --header-bg: rgba(18, 17, 16, 0.85);
+  --header-bg: #121110;
   --title: #f3efe6;
   --text: #b8b2a4;
   --dim: #7a7466;
@@ -68,10 +69,16 @@ body * {
     border-color 0.6s ease;
 }
 
-/* Ghost monogram sweep — full viewport, behind content. */
-@keyframes ghost-sweep {
-  from { transform: translateX(100vw); }
-  to { transform: translateX(-110%); }
+/* Ghost background bands — marks drift across, alternating direction.
+   Each track holds two identical passes, so shifting by half its width
+   loops seamlessly. */
+@keyframes ghost-drift-ltr {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+@keyframes ghost-drift-rtl {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 /* Team-matching page: Google-colored orbs drifting behind content. */

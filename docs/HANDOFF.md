@@ -138,3 +138,35 @@ which prints the existing URL.
    URL to Supabase auth redirect allowlist and Google OAuth authorized
    origins, point the custom domain, verify sign-in + uploads + the
    match page in production.
+
+## Production auth configuration (Supabase + Google)
+
+The OAuth code lives in `src/components/auth/google-sign-in-button.tsx`
+(starts the flow with `redirectTo: ${window.location.origin}/auth/callback`)
+and `src/app/auth/callback/route.ts` (exchanges the code for a session
+cookie). Both are host-agnostic — the production-only failures are all
+dashboard settings:
+
+- **Supabase → Authentication → URL Configuration → Site URL**: must be
+  the production origin (`https://www.matthew-wind.com`), not
+  `http://localhost:3000`. Supabase falls back to Site URL whenever the
+  requested `redirect_to` isn't allow-listed, which is why a bad config
+  lands the user on `<site-url>/?code=...` with no session.
+- **Redirect URLs** must list every origin that can start a sign-in:
+  `https://www.matthew-wind.com/auth/callback`,
+  `https://matthew-wind.com/auth/callback`,
+  `http://localhost:3000/auth/callback`, and — for Vercel preview
+  deploys — `https://*-<team>.vercel.app/auth/callback`.
+- **Google Cloud → Credentials → OAuth client**: the only authorized
+  redirect URI Google needs is Supabase's
+  `https://<project-ref>.supabase.co/auth/v1/callback`. Authorized
+  JavaScript origins should include the site's own origins.
+- **One canonical host.** The PKCE code verifier is stored in a host-only
+  cookie, so starting sign-in on `matthew-wind.com` and finishing on
+  `www.matthew-wind.com` (or vice versa) fails the exchange with a
+  missing-verifier error. Keep Vercel's apex → `www` redirect in place so
+  users only ever sit on one host.
+
+`src/middleware.ts` forwards a stray `/?code=...` to `/auth/callback` as a
+safety net, and `/auth/error?reason=...` surfaces the exchange failure
+message instead of a generic string.
