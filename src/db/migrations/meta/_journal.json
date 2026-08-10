@@ -50,6 +50,13 @@
       "when": 1786140712270,
       "tag": "0006_contact_github",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786380483141,
+      "tag": "0007_entry_headlines",
+      "breakpoints": true
     }
   ]
 }
