@@ -37,6 +37,8 @@ export const experiences = pgTable("experiences", {
   companyDomain: text("company_domain"),
   companyLogoUrl: text("company_logo_url"),
   title: text("title").notNull(),
+  /** One-line description shown on collapsed/preview cards. */
+  headline: text("headline").notNull().default(""),
   startDate: date("start_date").notNull(),
   /** Null end date = current position. */
   endDate: date("end_date"),
@@ -53,6 +55,8 @@ export const courses = pgTable("courses", {
   name: text("name").notNull(),
   /** e.g. "CS 4780". */
   courseNumber: text("course_number").notNull(),
+  /** One-line description shown on collapsed/preview cards. */
+  headline: text("headline").notNull().default(""),
   /** Free-form, e.g. "Fall 2024"; null = unspecified. */
   semester: text("semester"),
   sortOrder: integer("sort_order").notNull().default(0),
@@ -64,6 +68,8 @@ export const courses = pgTable("courses", {
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** One-line description shown on collapsed/preview cards. */
+  headline: text("headline").notNull().default(""),
   /** When set, the project lists under this course, not under Projects. */
   courseId: uuid("course_id").references(() => courses.id, {
     onDelete: "cascade",

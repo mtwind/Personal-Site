@@ -33,6 +33,11 @@ export function CourseCard({ course }: { course: CourseWithProjects }) {
               ? ` · ${course.projects.length} project${course.projects.length === 1 ? "" : "s"}`
               : ""}
           </div>
+          {course.headline ? (
+            <p className="mt-1 text-[14px] leading-6 text-(--text)">
+              {course.headline}
+            </p>
+          ) : null}
         </div>
         {hasProjects && (
           <span

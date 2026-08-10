@@ -97,6 +97,18 @@ export function ProjectForm({ project, courseId, onClose }: ProjectFormProps) {
           />
         </Field>
       </div>
+      <Field
+        label="Short description (shown on preview cards)"
+        htmlFor={`proj-headline-${idSuffix}`}
+      >
+        <input
+          id={`proj-headline-${idSuffix}`}
+          name="headline"
+          defaultValue={project?.headline ?? ""}
+          placeholder="One line on what this project is"
+          className={inputClass}
+        />
+      </Field>
       <Field label="Bullet points" htmlFor="bullets">
         <BulletsInput name="bullets" initial={project?.bullets ?? []} />
       </Field>
