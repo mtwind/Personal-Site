@@ -113,17 +113,6 @@ body * {
   }
 }
 
-/* Tab strip: tabs keep their width and the strip scrolls once crowded,
-   rather than squeezing every tab down to an unreadable sliver. The
-   native bar is hidden because platforms disagree about whether it is
-   an overlay — the strip draws its own, so it is always visible. */
-.match-tabstrip {
-  scrollbar-width: none;
-}
-.match-tabstrip::-webkit-scrollbar {
-  display: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
   body,
   body * {

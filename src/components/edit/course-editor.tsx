@@ -78,18 +78,6 @@ function CourseForm({ course, onClose }: CourseFormProps) {
           />
         </Field>
       </div>
-      <Field
-        label="Short description (shown when collapsed)"
-        htmlFor={`course-headline-${idSuffix}`}
-      >
-        <input
-          id={`course-headline-${idSuffix}`}
-          name="headline"
-          defaultValue={course?.headline ?? ""}
-          placeholder="One line on what the course covered"
-          className={inputClass}
-        />
-      </Field>
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">
         <SubmitButton>{course ? "Save changes" : "Add course"}</SubmitButton>

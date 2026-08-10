@@ -33,8 +33,6 @@ export interface ReferenceMedia {
 export interface ReferenceProject {
   id: string;
   name: string;
-  /** One-line description shown on preview cards. */
-  headline: string;
   /** Preformatted on the server — avoids Intl hydration mismatches. */
   dateRange: string | null;
   bullets: string[];
@@ -49,8 +47,6 @@ export interface ReferenceExperience {
   id: string;
   companyName: string;
   title: string;
-  /** One-line description shown on preview cards. */
-  headline: string;
   dateRange: string | null;
   bullets: string[];
   skillIds: string[];
@@ -62,7 +58,7 @@ export interface MatchReferenceIndex {
   skills: ReferenceSkill[];
 }
 
-export type ReferenceKind = "project" | "skill" | "experience";
+export type ReferenceKind = "project" | "skill";
 
 /** A reference the reader can open in the pane. */
 export interface ReferenceTarget {
@@ -141,7 +137,6 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
     projects: allProjects.map((project) => ({
       id: project.id,
       name: project.name,
-      headline: project.headline,
       dateRange: formatDateRange(project.startDate, project.endDate),
       bullets: project.bullets,
       repoUrl: project.repoUrl,
@@ -160,7 +155,6 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
       id: experience.id,
       companyName: experience.companyName,
       title: experience.title,
-      headline: experience.headline,
       dateRange: formatDateRange(experience.startDate, experience.endDate),
       bullets: experience.bullets,
       skillIds: experience.skills.map((skill) => skill.id),
@@ -176,7 +170,6 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
 export function createReferenceResolver(index: MatchReferenceIndex) {
   const projectsById = new Map(index.projects.map((p) => [p.id, p]));
   const skillsById = new Map(index.skills.map((s) => [s.id, s]));
-  const experiencesById = new Map(index.experiences.map((e) => [e.id, e]));
   const projectsByName = new Map(
     index.projects.map((p) => [normalizeKey(p.name), p]),
   );
@@ -193,10 +186,6 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
 
   function skill(id: string): ReferenceSkill | null {
     return skillsById.get(id) ?? null;
-  }
-
-  function experience(id: string): ReferenceExperience | null {
-    return experiencesById.get(id) ?? null;
   }
 
   /** Split prose into plain text and resolved reference segments. */
@@ -296,14 +285,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     };
   }
 
-  return {
-    project,
-    skill,
-    experience,
-    parse,
-    similarProjects,
-    workUsingSkill,
-  };
+  return { project, skill, parse, similarProjects, workUsingSkill };
 }
 
 export type ReferenceResolver = ReturnType<typeof createReferenceResolver>;

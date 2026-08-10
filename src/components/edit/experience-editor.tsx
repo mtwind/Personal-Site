@@ -85,18 +85,6 @@ function ExperienceForm({ exp, onClose }: ExperienceFormProps) {
           />
         </Field>
       </div>
-      <Field
-        label="Short description (shown on preview cards)"
-        htmlFor={`exp-headline-${exp?.id ?? "new"}`}
-      >
-        <input
-          id={`exp-headline-${exp?.id ?? "new"}`}
-          name="headline"
-          defaultValue={exp?.headline ?? ""}
-          placeholder="One line on what this role was about"
-          className={inputClass}
-        />
-      </Field>
       <Field label="Bullet points" htmlFor="bullets">
         <BulletsInput name="bullets" initial={exp?.bullets ?? []} />
       </Field>
