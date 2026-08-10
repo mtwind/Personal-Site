@@ -2,13 +2,14 @@
 
 import { useEffect, useRef } from "react";
 
-import type {
-  ReferenceExperience,
-  ReferenceMedia,
-  ReferenceProject,
-  ReferenceResolver,
-  ReferenceSkill,
-  ReferenceTarget,
+import {
+  referenceKey,
+  type ReferenceExperience,
+  type ReferenceMedia,
+  type ReferenceProject,
+  type ReferenceResolver,
+  type ReferenceSkill,
+  type ReferenceTarget,
 } from "@/lib/match-references";
 
 const TITLE_ID = "match-pane-title";
@@ -18,29 +19,39 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])';
 
 interface ReferencePaneProps {
-  /** Navigation history; the last entry is what's shown. */
-  stack: ReferenceTarget[];
+  /** Open tabs, left to right. Empty means the pane is closed. */
+  tabs: ReferenceTarget[];
+  /** Key of the tab currently in front. */
+  activeKey: string;
   resolver: ReferenceResolver;
-  onNavigate: (target: ReferenceTarget) => void;
-  onBack: () => void;
+  /** Open a target, or focus it when a tab already holds it. */
+  onOpen: (target: ReferenceTarget) => void;
+  onSelectTab: (key: string) => void;
+  onCloseTab: (key: string) => void;
   onClose: () => void;
 }
 
 /**
- * Detail pane for an inline project/skill reference — a right-hand panel
- * on desktop, a bottom sheet covering three quarters of the viewport on
- * mobile. Drilling into a related project or a skill pushes onto the
- * stack, so the back button retraces the reader's path.
+ * Detail pane for inline project/skill references — a right-hand panel on
+ * desktop, a bottom sheet covering three quarters of the viewport on
+ * mobile.
+ *
+ * Navigation is browser-like: following a related project or a skill
+ * opens another tab in the strip rather than replacing what the reader was
+ * looking at, so several entries stay open side by side and comparing them
+ * is a click rather than a re-trace.
  */
 export function ReferencePane({
-  stack,
+  tabs,
+  activeKey,
   resolver,
-  onNavigate,
-  onBack,
+  onOpen,
+  onSelectTab,
+  onCloseTab,
   onClose,
 }: ReferencePaneProps) {
   const paneRef = useRef<HTMLDivElement>(null);
-  const current = stack[stack.length - 1];
+  const current = tabs.find((tab) => referenceKey(tab) === activeKey);
 
   // Close on Escape, and keep Tab inside the pane while it's open.
   useEffect(() => {
@@ -111,111 +122,36 @@ export function ReferencePane({
         aria-modal="true"
         aria-labelledby={TITLE_ID}
         tabIndex={-1}
-        className="match-pane fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col rounded-t-2xl bg-white shadow-2xl outline-none md:inset-x-auto md:top-0 md:right-0 md:bottom-0 md:h-full md:w-[27rem] md:max-w-[92vw] md:rounded-none md:border-l md:border-[#dadce0]"
+        className="match-pane fixed inset-x-0 bottom-0 z-50 flex h-[75vh] flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl outline-none md:inset-x-auto md:top-0 md:right-0 md:bottom-0 md:h-full md:w-[27rem] md:max-w-[92vw] md:rounded-none md:border-l md:border-[#dadce0]"
       >
-        {/* Bottom-sheet grab handle — the sheet's collapse affordance. */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Collapse panel"
-          title="Collapse"
-          className="group flex w-full shrink-0 cursor-pointer justify-center pt-3 pb-2 md:hidden"
-        >
-          <span className="h-1.5 w-11 rounded-full bg-[#bdc1c6] transition-colors group-hover:bg-[#80868b] group-active:bg-[#5f6368]" />
-        </button>
+        <TabStrip
+          tabs={tabs}
+          activeKey={activeKey}
+          resolver={resolver}
+          onSelectTab={onSelectTab}
+          onCloseTab={onCloseTab}
+          onClose={onClose}
+        />
 
-        {/* Desktop equivalent: a pull-tab on the panel's leading edge. */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Collapse panel"
-          title="Collapse"
-          className="group absolute top-0 left-0 hidden h-full w-5 cursor-pointer items-center justify-center md:flex"
-        >
-          <span className="flex h-14 w-[18px] items-center justify-center rounded-r-md border border-l-0 border-[#dadce0] bg-[#f1f3f4] transition-colors group-hover:border-[#1a73e8] group-hover:bg-[#e8f0fe] group-active:bg-[#d2e3fc]">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5 text-[#5f6368] transition-colors group-hover:text-[#1a73e8]"
-              aria-hidden
-            >
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </span>
-        </button>
-
-        <header className="flex items-center gap-2 border-b border-[#dadce0] px-4 py-3 md:pl-8">
-          {stack.length > 1 ? (
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="Back"
-              className="-ml-1 rounded-full p-1.5 text-[#5f6368] transition-colors hover:bg-[#f1f3f4] hover:text-[#202124]"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-                aria-hidden
-              >
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-          ) : null}
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] tracking-[0.14em] text-[#5f6368] uppercase">
-              {current.kind === "project" ? "Project" : "Skill"}
-            </p>
-            <h2
-              id={TITLE_ID}
-              className="truncate text-[17px] font-medium text-[#202124]"
-            >
-              {title}
-            </h2>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="-mr-1 rounded-full p-1.5 text-[#5f6368] transition-colors hover:bg-[#f1f3f4] hover:text-[#202124]"
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+          <p className="text-[11px] tracking-[0.14em] text-[#5f6368] uppercase">
+            {current.kind === "project" ? "Project" : "Skill"}
+          </p>
+          <h2
+            id={TITLE_ID}
+            className="mt-0.5 mb-4 text-[21px] leading-tight font-normal text-[#202124]"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              className="h-5 w-5"
-              aria-hidden
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
+            {title}
+          </h2>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:pl-8">
           {project ? (
             <ProjectView
               project={project}
               resolver={resolver}
-              onNavigate={onNavigate}
+              onOpen={onOpen}
             />
           ) : skill ? (
-            <SkillView
-              skill={skill}
-              resolver={resolver}
-              onNavigate={onNavigate}
-            />
+            <SkillView skill={skill} resolver={resolver} onOpen={onOpen} />
           ) : (
             <p className="text-sm text-[#5f6368]">
               That entry is no longer available.
@@ -227,19 +163,174 @@ export function ReferencePane({
   );
 }
 
+/**
+ * Chrome-like tab row: a grey shelf of tabs whose active member is white
+ * and joined to the content below it. The pane's close button sits at the
+ * far right of the same row.
+ */
+function TabStrip({
+  tabs,
+  activeKey,
+  resolver,
+  onSelectTab,
+  onCloseTab,
+  onClose,
+}: {
+  tabs: ReferenceTarget[];
+  activeKey: string;
+  resolver: ReferenceResolver;
+  onSelectTab: (key: string) => void;
+  onCloseTab: (key: string) => void;
+  onClose: () => void;
+}) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+
+  // Keep the front tab in view as the strip fills up.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeKey]);
+
+  return (
+    // No bottom border: the active tab is white and merges into the
+    // content below it, the way a browser tab joins its page.
+    <div className="flex shrink-0 items-end gap-1 bg-[#dee1e6] pt-2 pr-1 pl-1.5">
+      <div
+        role="tablist"
+        aria-label="Open entries"
+        className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {tabs.map((tab) => {
+          const key = referenceKey(tab);
+          const isActive = key === activeKey;
+          const entry =
+            tab.kind === "project"
+              ? resolver.project(tab.id)
+              : resolver.skill(tab.id);
+          const label = entry?.name ?? "Missing";
+          const iconUrl =
+            tab.kind === "skill" ? resolver.skill(tab.id)?.iconUrl : null;
+
+          return (
+            <span
+              key={key}
+              className={`group flex min-w-0 shrink items-center gap-1 rounded-t-lg pr-1 pl-2 transition-colors ${
+                isActive
+                  ? "bg-white"
+                  : "bg-[#cfd3d8] hover:bg-[#dfe2e6] active:bg-[#e8eaed]"
+              }`}
+            >
+              <button
+                ref={isActive ? activeRef : undefined}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onSelectTab(key)}
+                title={label}
+                className="flex min-w-0 cursor-pointer items-center gap-1.5 py-1.5 text-left"
+              >
+                {iconUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={iconUrl}
+                    alt=""
+                    aria-hidden
+                    className="h-3.5 w-3.5 shrink-0"
+                  />
+                ) : (
+                  <TabGlyph kind={tab.kind} />
+                )}
+                <span
+                  className={`truncate text-[12px] ${
+                    isActive
+                      ? "font-medium text-[#202124]"
+                      : "text-[#3c4043] group-hover:text-[#202124]"
+                  }`}
+                >
+                  {label}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onCloseTab(key)}
+                aria-label={`Close ${label}`}
+                title="Close tab"
+                className="shrink-0 cursor-pointer rounded-full p-0.5 text-[#5f6368] transition-colors hover:bg-black/10 hover:text-[#202124]"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  className="h-3 w-3"
+                  aria-hidden
+                >
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        title="Close panel"
+        className="mb-1 shrink-0 cursor-pointer rounded-full p-1.5 text-[#5f6368] transition-colors hover:bg-black/10 hover:text-[#202124]"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="h-4 w-4"
+          aria-hidden
+        >
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/** Stand-in favicon for entries without an icon of their own. */
+function TabGlyph({ kind }: { kind: ReferenceTarget["kind"] }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#5f6368"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5 shrink-0"
+      aria-hidden
+    >
+      {kind === "project" ? (
+        <>
+          <path d="M4 7h6l2 2h8v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+          <path d="M4 7V6a1 1 0 0 1 1-1h4" />
+        </>
+      ) : (
+        <path d="m8 6-5 6 5 6M16 6l5 6-5 6" />
+      )}
+    </svg>
+  );
+}
+
 function ProjectView({
   project,
   resolver,
-  onNavigate,
+  onOpen,
 }: {
   project: ReferenceProject;
   resolver: ReferenceResolver;
-  onNavigate: (target: ReferenceTarget) => void;
+  onOpen: (target: ReferenceTarget) => void;
 }) {
   const similar = resolver.similarProjects(project.id);
-  const skills = project.skillIds
-    .map((id) => resolver.skill(id))
-    .filter((skill): skill is ReferenceSkill => skill !== null);
 
   return (
     <div className="space-y-5">
@@ -274,12 +365,6 @@ function ProjectView({
         </a>
       ) : null}
 
-      {skills.length > 0 ? (
-        <PaneGroup title="Built with">
-          <SkillChips skills={skills} onNavigate={onNavigate} />
-        </PaneGroup>
-      ) : null}
-
       <PaneMedia items={project.media} />
 
       {similar.length > 0 ? (
@@ -287,23 +372,25 @@ function ProjectView({
           <ul className="space-y-2">
             {similar.map(({ project: related, sharedSkills }) => (
               <li key={related.id}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate({ kind: "project", id: related.id })}
-                  className="w-full rounded-xl border border-[#dadce0] px-3.5 py-3 text-left transition-colors hover:border-[#1a73e8] hover:bg-[#f8fbff]"
-                >
-                  <span className="block text-[14px] font-medium text-[#202124]">
-                    {related.name}
-                  </span>
-                  <span className="mt-0.5 block text-[12px] text-[#5f6368]">
-                    Shares {sharedSkills.map((s) => s.name).join(", ")}
-                  </span>
-                </button>
+                <WorkCard
+                  title={related.name}
+                  note={`Shares ${sharedSkills.map((s) => s.name).join(", ")}`}
+                  skillIds={related.skillIds}
+                  resolver={resolver}
+                  onOpen={onOpen}
+                  onOpenSelf={() => onOpen({ kind: "project", id: related.id })}
+                />
               </li>
             ))}
           </ul>
         </PaneGroup>
       ) : null}
+
+      <TechStack
+        skillIds={project.skillIds}
+        resolver={resolver}
+        onOpen={onOpen}
+      />
     </div>
   );
 }
@@ -311,11 +398,11 @@ function ProjectView({
 function SkillView({
   skill,
   resolver,
-  onNavigate,
+  onOpen,
 }: {
   skill: ReferenceSkill;
   resolver: ReferenceResolver;
-  onNavigate: (target: ReferenceTarget) => void;
+  onOpen: (target: ReferenceTarget) => void;
 }) {
   const { experiences, projects } = resolver.workUsingSkill(skill.id);
   const total = experiences.length + projects.length;
@@ -336,13 +423,14 @@ function SkillView({
 
       {experiences.length > 0 ? (
         <PaneGroup title="Experience">
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {experiences.map((experience) => (
-              <li
-                key={experience.id}
-                className="rounded-xl border border-[#dadce0] px-3.5 py-3"
-              >
-                <ExperienceSummary experience={experience} />
+              <li key={experience.id}>
+                <ExperienceCard
+                  experience={experience}
+                  resolver={resolver}
+                  onOpen={onOpen}
+                />
               </li>
             ))}
           </ul>
@@ -354,20 +442,14 @@ function SkillView({
           <ul className="space-y-2">
             {projects.map((project) => (
               <li key={project.id}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate({ kind: "project", id: project.id })}
-                  className="w-full rounded-xl border border-[#dadce0] px-3.5 py-3 text-left transition-colors hover:border-[#1a73e8] hover:bg-[#f8fbff]"
-                >
-                  <span className="block text-[14px] font-medium text-[#202124]">
-                    {project.name}
-                  </span>
-                  {project.courseLabel || project.dateRange ? (
-                    <span className="mt-0.5 block text-[12px] text-[#5f6368]">
-                      {project.courseLabel ?? project.dateRange}
-                    </span>
-                  ) : null}
-                </button>
+                <WorkCard
+                  title={project.name}
+                  note={project.courseLabel ?? project.dateRange}
+                  skillIds={project.skillIds}
+                  resolver={resolver}
+                  onOpen={onOpen}
+                  onOpenSelf={() => onOpen({ kind: "project", id: project.id })}
+                />
               </li>
             ))}
           </ul>
@@ -377,13 +459,60 @@ function SkillView({
   );
 }
 
-function ExperienceSummary({
-  experience,
+/**
+ * A project summary in a list. The title opens the project in its own tab;
+ * the stack chips open their skill. Both live in the card as siblings —
+ * nesting a button inside a button would be invalid.
+ */
+function WorkCard({
+  title,
+  note,
+  skillIds,
+  resolver,
+  onOpen,
+  onOpenSelf,
 }: {
-  experience: ReferenceExperience;
+  title: string;
+  note: string | null;
+  skillIds: string[];
+  resolver: ReferenceResolver;
+  onOpen: (target: ReferenceTarget) => void;
+  onOpenSelf: () => void;
 }) {
   return (
-    <>
+    <div className="rounded-xl border border-[#dadce0] px-3.5 py-3 transition-colors focus-within:border-[#1a73e8] hover:border-[#1a73e8] hover:bg-[#f8fbff]">
+      <button
+        type="button"
+        onClick={onOpenSelf}
+        className="cursor-pointer text-left text-[14px] font-medium text-[#202124] underline-offset-2 hover:underline"
+      >
+        {title}
+      </button>
+      {note ? (
+        <p className="mt-0.5 text-[12px] text-[#5f6368]">{note}</p>
+      ) : null}
+      <TechStack
+        skillIds={skillIds}
+        resolver={resolver}
+        onOpen={onOpen}
+        compact
+      />
+    </div>
+  );
+}
+
+/** An experience summary. No detail view of its own, so it shows in full. */
+function ExperienceCard({
+  experience,
+  resolver,
+  onOpen,
+}: {
+  experience: ReferenceExperience;
+  resolver: ReferenceResolver;
+  onOpen: (target: ReferenceTarget) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-[#dadce0] px-3.5 py-3">
       <p className="text-[14px] font-medium text-[#202124]">
         {experience.title}
       </p>
@@ -398,35 +527,64 @@ function ExperienceSummary({
           ))}
         </ul>
       ) : null}
-    </>
+      <TechStack
+        skillIds={experience.skillIds}
+        resolver={resolver}
+        onOpen={onOpen}
+        compact
+      />
+    </div>
   );
 }
 
-function SkillChips({
-  skills,
-  onNavigate,
+/**
+ * The tech stack for a piece of work, at the bottom of every entry. Each
+ * chip opens that skill in its own tab.
+ */
+function TechStack({
+  skillIds,
+  resolver,
+  onOpen,
+  compact = false,
 }: {
-  skills: ReferenceSkill[];
-  onNavigate: (target: ReferenceTarget) => void;
+  skillIds: string[];
+  resolver: ReferenceResolver;
+  onOpen: (target: ReferenceTarget) => void;
+  compact?: boolean;
 }) {
-  return (
+  const skills = skillIds
+    .map((id) => resolver.skill(id))
+    .filter((skill): skill is ReferenceSkill => skill !== null);
+
+  if (skills.length === 0) return null;
+
+  const chips = (
     <div className="flex flex-wrap gap-1.5">
       {skills.map((skill) => (
         <button
           key={skill.id}
           type="button"
-          onClick={() => onNavigate({ kind: "skill", id: skill.id })}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#dadce0] px-2.5 py-1 text-[12px] font-medium text-[#3c4043] transition-colors hover:border-[#1a73e8] hover:bg-[#f1f6fe] hover:text-[#1a73e8]"
+          onClick={() => onOpen({ kind: "skill", id: skill.id })}
+          title={`Open ${skill.name}`}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#dadce0] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#3c4043] transition-colors hover:border-[#1a73e8] hover:bg-[#f1f6fe] hover:text-[#1a73e8]"
         >
           {skill.iconUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={skill.iconUrl} alt="" aria-hidden className="h-3.5 w-3.5" />
+            <img
+              src={skill.iconUrl}
+              alt=""
+              aria-hidden
+              className="h-3.5 w-3.5"
+            />
           ) : null}
           {skill.name}
         </button>
       ))}
     </div>
   );
+
+  if (compact) return <div className="mt-2.5">{chips}</div>;
+  return <PaneGroup title="Tech stack">{chips}</PaneGroup>;
 }
 
 function PaneMedia({ items }: { items: ReferenceMedia[] }) {

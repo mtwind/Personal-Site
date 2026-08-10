@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   createReferenceResolver,
+  referenceKey,
   type MatchReferenceIndex,
   type ReferenceTarget,
 } from "@/lib/match-references";
@@ -70,33 +71,59 @@ export function MatchPageClient({
 }: MatchPageProps) {
   const [editing, setEditing] = useState(false);
   const [exiting, setExiting] = useState(false);
-  /** Reference pane history; empty means the pane is closed. */
-  const [refStack, setRefStack] = useState<ReferenceTarget[]>([]);
+  /**
+   * Open reference tabs and which one is in front. Kept in one object so
+   * closing a tab can pick its successor in a single atomic update.
+   */
+  const [refPane, setRefPane] = useState<{
+    tabs: ReferenceTarget[];
+    activeKey: string;
+  }>({ tabs: [], activeKey: "" });
 
   const resolver = useMemo(
     () => createReferenceResolver(referenceIndex),
     [referenceIndex],
   );
 
-  /** Opening from the prose starts a fresh trail. */
+  /**
+   * Open a target in the pane. Browser-like: an entry already open is
+   * brought to the front rather than duplicated into a second tab.
+   */
   const openRef = useCallback((target: ReferenceTarget) => {
-    setRefStack([target]);
+    const key = referenceKey(target);
+    setRefPane(({ tabs }) => ({
+      tabs: tabs.some((tab) => referenceKey(tab) === key)
+        ? tabs
+        : [...tabs, target],
+      activeKey: key,
+    }));
   }, []);
 
-  /** Drilling in from inside the pane extends the trail. */
-  const pushRef = useCallback((target: ReferenceTarget) => {
-    setRefStack((stack) => {
-      const top = stack[stack.length - 1];
-      if (top && top.kind === target.kind && top.id === target.id) return stack;
-      return [...stack, target];
+  const selectRefTab = useCallback((key: string) => {
+    setRefPane((state) => ({ ...state, activeKey: key }));
+  }, []);
+
+  /** Close one tab, handing focus to its right-hand neighbour like Chrome. */
+  const closeRefTab = useCallback((key: string) => {
+    setRefPane(({ tabs, activeKey }) => {
+      const index = tabs.findIndex((tab) => referenceKey(tab) === key);
+      if (index === -1) return { tabs, activeKey };
+
+      const remaining = tabs.filter((_, i) => i !== index);
+      if (activeKey !== key) return { tabs: remaining, activeKey };
+
+      const successor = remaining[index] ?? remaining[index - 1];
+      return {
+        tabs: remaining,
+        activeKey: successor ? referenceKey(successor) : "",
+      };
     });
   }, []);
 
-  const popRef = useCallback(() => {
-    setRefStack((stack) => stack.slice(0, -1));
-  }, []);
-
-  const closeRef = useCallback(() => setRefStack([]), []);
+  const closeRef = useCallback(
+    () => setRefPane({ tabs: [], activeKey: "" }),
+    [],
+  );
 
   const meetingHref =
     page.meetingUrl ??
@@ -281,12 +308,14 @@ export function MatchPageClient({
         )}
       </main>
 
-      {refStack.length > 0 ? (
+      {refPane.tabs.length > 0 ? (
         <ReferencePane
-          stack={refStack}
+          tabs={refPane.tabs}
+          activeKey={refPane.activeKey}
           resolver={resolver}
-          onNavigate={pushRef}
-          onBack={popRef}
+          onOpen={openRef}
+          onSelectTab={selectRefTab}
+          onCloseTab={closeRefTab}
           onClose={closeRef}
         />
       ) : null}

@@ -66,6 +66,11 @@ export interface ReferenceTarget {
   id: string;
 }
 
+/** Stable identity for a target, used as its tab key. */
+export function referenceKey(target: ReferenceTarget): string {
+  return `${target.kind}:${target.id}`;
+}
+
 export type MatchSegment =
   | { type: "text"; text: string }
   | { type: "ref"; kind: ReferenceKind; id: string; label: string };
