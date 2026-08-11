@@ -28,6 +28,50 @@ const MODEL = "claude-opus-5";
 const MAX_TOKENS = 4000;
 
 /**
+ * How much prior conversation to carry. Each turn is re-sent in full on
+ * every follow-up, so this bounds both the bill and how far a thread can
+ * drift from the profile it is supposed to be about.
+ */
+const MAX_HISTORY_TURNS = 6;
+
+/** Longest prior answer echoed back into a follow-up. */
+const MAX_HISTORY_ANSWER = 2000;
+
+interface AskTurn {
+  question: string;
+  answer: string;
+}
+
+/**
+ * Rebuild the conversation from whatever the client sent.
+ *
+ * The history arrives from the browser, so it is untrusted: a crafted
+ * client could put words in the assistant's mouth. Two things keep that
+ * boring — every entry is rebuilt into a strict user/assistant pair
+ * (roles and alternation can't be forged), and both sides are length
+ * capped. The grounding rules still apply to every turn, so the worst
+ * available outcome is a visitor misleading themselves.
+ */
+function parseHistory(raw: unknown): AskTurn[] {
+  if (!Array.isArray(raw)) return [];
+
+  const turns: AskTurn[] = [];
+  for (const item of raw.slice(-MAX_HISTORY_TURNS)) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as { question?: unknown; answer?: unknown };
+    const question = String(entry.question ?? "")
+      .trim()
+      .slice(0, MAX_QUERY_LENGTH);
+    const answer = String(entry.answer ?? "")
+      .trim()
+      .slice(0, MAX_HISTORY_ANSWER);
+    // A turn with only one side would break alternation; drop it.
+    if (question && answer) turns.push({ question, answer });
+  }
+  return turns;
+}
+
+/**
  * Streaming answer endpoint for the team-matching search bar.
  *
  * Every failure mode returns a non-200 rather than a half-answer, because
@@ -39,10 +83,12 @@ export async function POST(request: Request) {
   const ipHash = hashIp(clientIp(request.headers));
 
   let query = "";
+  let history: AskTurn[] = [];
   try {
     const body: unknown = await request.json();
-    if (body && typeof body === "object" && "query" in body) {
-      query = String((body as { query: unknown }).query ?? "").trim();
+    if (body && typeof body === "object") {
+      query = String((body as { query?: unknown }).query ?? "").trim();
+      history = parseHistory((body as { history?: unknown }).history);
     }
   } catch {
     return NextResponse.json({ error: "Malformed request." }, { status: 400 });
@@ -130,7 +176,18 @@ export async function POST(request: Request) {
               cache_control: { type: "ephemeral" },
             },
           ],
-          messages: [{ role: "user", content: query }],
+          // Prior turns live here, after the cached breakpoint, so a
+          // follow-up still reads the corpus from cache.
+          messages: [
+            ...history.flatMap(
+              (turn) =>
+                [
+                  { role: "user" as const, content: turn.question },
+                  { role: "assistant" as const, content: turn.answer },
+                ] as const,
+            ),
+            { role: "user", content: query },
+          ],
         });
 
         for await (const event of message) {
