@@ -28,6 +28,8 @@ export interface MatchPageProps {
   contactEmail: string | null;
   /** Projects, experiences and skills that prose can reference inline. */
   referenceIndex: MatchReferenceIndex;
+  /** False when no Anthropic key is configured; the overview is skipped. */
+  aiEnabled: boolean;
   /** Roboto class from next/font, applied to this page only. */
   fontClass: string;
 }
@@ -73,6 +75,7 @@ export function MatchPageClient({
   ownerName,
   contactEmail,
   referenceIndex,
+  aiEnabled,
   fontClass,
 }: MatchPageProps) {
   const [editing, setEditing] = useState(false);
@@ -212,6 +215,8 @@ export function MatchPageClient({
               <MatchSearchResults
                 query={search.query}
                 hits={hits}
+                resolver={resolver}
+                aiEnabled={aiEnabled}
                 onOpen={openRef}
                 onClear={search.clear}
               />
