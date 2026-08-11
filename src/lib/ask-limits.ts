@@ -18,7 +18,17 @@ export const GLOBAL_DAILY = 300;
 /** Longest question worth spending a model call on. */
 export const MAX_QUERY_LENGTH = 300;
 
-export type AskOutcome = "ok" | "rate_limited" | "unavailable" | "error";
+/**
+ * `empty` is a call that succeeded and produced no visible text — the
+ * failure mode a card that silently disappears looks like from outside.
+ * It is worth its own value so the ledger can tell it from a hard error.
+ */
+export type AskOutcome =
+  | "ok"
+  | "empty"
+  | "rate_limited"
+  | "unavailable"
+  | "error";
 
 /**
  * Salted hash of the caller's IP. Rate limiting needs to recognise a
