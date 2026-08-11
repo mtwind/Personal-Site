@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import {
   MAX_QUERY_LENGTH,
+  type LimitVerdict,
   checkAskLimits,
   clientIp,
   hashIp,
@@ -63,7 +64,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const verdict = await checkAskLimits(ipHash);
+  // Fail closed if the ledger can't be read at all — an unmigrated
+  // database, a connection failure. Those two counts are the only thing
+  // bounding spend on a public endpoint, so "I can't check the limit" has
+  // to mean no call rather than a free pass. Answering 503 also keeps a
+  // missing table from 500ing the route: the client treats it like any
+  // other unavailable overview and the keyword results carry on.
+  let verdict: LimitVerdict;
+  try {
+    verdict = await checkAskLimits(ipHash);
+  } catch (error: unknown) {
+    console.error("ask limit check failed:", error);
+    return NextResponse.json(
+      { error: "AI overview is unavailable." },
+      { status: 503 },
+    );
+  }
+
   if (!verdict.allowed) {
     await logAsk({ query, ipHash, outcome: "rate_limited" });
     return NextResponse.json(
