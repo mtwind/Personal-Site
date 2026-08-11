@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import { notFound } from "next/navigation";
 
+import { AdRail } from "@/components/match/match-ads";
 import { MatchShell } from "@/components/match/match-shell";
+import { getActiveAds } from "@/lib/ads";
 import { getAuthState } from "@/lib/auth";
 import { getMatchContext } from "@/lib/match-index";
 import { matchBase } from "@/lib/match-tabs";
@@ -25,7 +27,11 @@ export const metadata: Metadata = {
 
 export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
   const { slug } = await props.params;
-  const [context, auth] = await Promise.all([getMatchContext(), getAuthState()]);
+  const [context, auth, ads] = await Promise.all([
+    getMatchContext(),
+    getAuthState(),
+    getActiveAds(),
+  ]);
 
   if (!context || context.page.slug !== slug) notFound();
 
@@ -38,6 +44,13 @@ export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
       homeTitle={context.page.headline || "Team Matching"}
       isEditor={auth.isEditor}
       fontClass={roboto.className}
+      ads={ads}
+      // Handed in as an element: the rail reads the shell's context, so
+      // the shell importing it would make the two import each other. The
+      // key is what stops React warning about it — an element built here
+      // and rendered beside `children` over there arrives without the
+      // marking a client-side sibling would have had.
+      rail={<AdRail key="ad-rail" />}
     >
       {props.children}
     </MatchShell>

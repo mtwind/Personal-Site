@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { KIND_LABEL } from "@/lib/match-references";
 import { matchRanges, searchReferences, type SearchHit } from "@/lib/match-search";
 import { targetHref } from "@/lib/match-tabs";
+import { SponsoredResults } from "./match-ads";
 import { MatchAiOverview } from "./match-ai-overview";
 import { GOOGLE_DOTS, useMatch } from "./match-shell";
 
@@ -162,6 +163,9 @@ export function MatchSearchResults({
           Back to profile
         </Link>
       </div>
+
+      {/* Above the overview, where Google puts them. */}
+      <SponsoredResults query={query} />
 
       {aiEnabled ? <MatchAiOverview query={query} /> : null}
 

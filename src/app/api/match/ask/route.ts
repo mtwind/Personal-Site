@@ -16,11 +16,18 @@ import { buildReferenceIndex } from "@/lib/match-references";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
 
-/** Claude Opus 5 — chosen for its judgment about what it does not know. */
-const MODEL = "claude-opus-5";
+/**
+ * Claude Sonnet 5. The job is a grounded lookup over a few thousand
+ * tokens of profile, answered in two or three sentences — Opus-tier
+ * reasoning was more than that needs. What the choice does turn on is
+ * the model's judgment about what it *doesn't* know: the instructions
+ * lean on it to decline rather than invent, so this is the floor rather
+ * than the cheapest model available.
+ */
+const MODEL = "claude-sonnet-5";
 
 /**
- * The cap covers thinking *and* the visible answer together, and Opus 5
+ * The cap covers thinking *and* the visible answer together, and Sonnet 5
  * thinks by default. A budget sized for the two or three sentences the
  * reader sees gets spent entirely on reasoning, and the request completes
  * with zero text — a card that loads and then vanishes. Leave real room:

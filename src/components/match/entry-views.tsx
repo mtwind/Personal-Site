@@ -14,6 +14,7 @@ import {
   type ReferenceTarget,
 } from "@/lib/match-references";
 import { targetHref } from "@/lib/match-tabs";
+import { AdBanner } from "./match-ads";
 import { MatchProse } from "./match-prose";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 
@@ -80,6 +81,20 @@ export function EntryView({
           </p>
         )}
       </div>
+
+      {/* Targeted at the entry itself — its title carries the subject. */}
+      <AdBanner
+        terms={[
+          title,
+          project?.headline,
+          experience?.headline,
+          course?.headline,
+          note?.title,
+          skill?.name,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      />
     </article>
   );
 }

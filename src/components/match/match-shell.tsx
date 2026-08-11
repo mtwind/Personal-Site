@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import type { Ad } from "@/lib/ad-targeting";
 import {
   createReferenceResolver,
   type MatchReferenceIndex,
@@ -30,6 +31,7 @@ import {
   type MatchSection,
   type MatchTab,
 } from "@/lib/match-tabs";
+import { SHELL_WIDTH } from "./match-layout";
 import { TabStrip } from "./tab-strip";
 
 export const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
@@ -48,6 +50,10 @@ interface MatchContextValue {
   resolver: ReferenceResolver;
   sections: MatchSection[];
   ownerName: string;
+  /** Every ad eligible to run; each slot picks its own from this. */
+  ads: Ad[];
+  /** False for the owner's own sessions, so they don't skew the counts. */
+  reportAds: boolean;
 }
 
 const MatchContext = createContext<MatchContextValue | null>(null);
@@ -75,6 +81,13 @@ interface MatchShellProps {
   isEditor: boolean;
   /** Roboto class from next/font, applied to this page only. */
   fontClass: string;
+  ads: Ad[];
+  /**
+   * The right-hand ad column, handed in as an element rather than
+   * imported. The rail reads this shell's context, and importing it here
+   * would make the two modules import each other.
+   */
+  rail: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -121,6 +134,8 @@ export function MatchShell({
   homeTitle,
   isEditor,
   fontClass,
+  ads,
+  rail,
   children,
 }: MatchShellProps) {
   const router = useRouter();
@@ -154,8 +169,18 @@ export function MatchShell({
   const resolver = useMemo(() => createReferenceResolver(index), [index]);
 
   const context = useMemo(
-    () => ({ base, index, resolver, sections, ownerName }),
-    [base, index, resolver, sections, ownerName],
+    () => ({
+      base,
+      index,
+      resolver,
+      sections,
+      ownerName,
+      ads,
+      // The owner browsing their own page would otherwise account for
+      // most of what the ad statistics describe.
+      reportAds: !isEditor,
+    }),
+    [base, index, resolver, sections, ownerName, ads, isEditor],
   );
 
   // Keys whose entry has since been renamed or deleted resolve to null
@@ -207,7 +232,9 @@ export function MatchShell({
               className="h-[3px] w-full"
               style={{ background: FOUR_COLOR_GRADIENT }}
             />
-            <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5">
+            <div
+              className={`${SHELL_WIDTH} flex h-14 items-center justify-between px-5`}
+            >
               <Link
                 href={base}
                 className="flex items-center gap-3 rounded-full outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#1a73e8]"
@@ -237,6 +264,12 @@ export function MatchShell({
                     Background
                   </Link>
                   <Link
+                    href="/admin/ads"
+                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+                  >
+                    Ads
+                  </Link>
+                  <Link
                     href="/admin/feedback"
                     className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
                   >
@@ -256,9 +289,10 @@ export function MatchShell({
           <TabStrip tabs={tabs} activeKey={active} onClose={onCloseTab} />
         </div>
 
-        <main className="relative z-10 mx-auto max-w-3xl px-5 py-10">
-          {children}
-        </main>
+        <div className={`${SHELL_WIDTH} relative z-10 flex gap-8 px-5 py-10`}>
+          <main className="w-full max-w-3xl min-w-0">{children}</main>
+          {rail}
+        </div>
       </div>
     </MatchContext.Provider>
   );

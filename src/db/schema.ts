@@ -284,6 +284,83 @@ export const searchQueries = pgTable(
   ],
 );
 
+/**
+ * Ads on the team-matching page: brands and pastimes the owner actually
+ * likes, dressed as sponsored placements because the page is a pastiche
+ * of Google. Nobody pays for these — the creative says so out loud.
+ */
+export const ads = pgTable(
+  "ads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Advertiser name, e.g. "Burton". */
+    brand: text("brand").notNull(),
+    /** The blue link line. */
+    headline: text("headline").notNull(),
+    description: text("description").notNull().default(""),
+    /** The grey line under the brand — cosmetic, e.g. "www.burton.com". */
+    displayUrl: text("display_url").notNull().default(""),
+    /** Where a click actually goes. */
+    targetUrl: text("target_url").notNull(),
+    /** Simple Icons slug; null falls back to an initial tile. */
+    iconSlug: text("icon_slug"),
+    /** Brand hex, used to tint the icon and the fallback tile. */
+    color: text("color"),
+    /** Overrides the Simple Icons URL when a brand isn't in the set. */
+    iconUrl: text("icon_url"),
+    /** Query terms this ad wants to run against. Matching is case-fold. */
+    keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    /** Which placements it is eligible for: 'sponsored' | 'rail' | 'banner'. */
+    slots: jsonb("slots")
+      .$type<string[]>()
+      .notNull()
+      .default(["sponsored", "rail", "banner"]),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("ads_active_sort_idx").on(table.active, table.sortOrder)],
+);
+
+/**
+ * One impression or click, appended as it happens.
+ *
+ * Raw rows rather than counters on `ads`: a counter answers "how many"
+ * and nothing else, while rows can still say *when* and *which slot* —
+ * the two questions worth asking of an ad that nobody is paying for.
+ *
+ * No public RLS policy. Writes go through the events route over the
+ * direct connection, the way the ask ledger does.
+ */
+export const adEvents = pgTable(
+  "ad_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adId: uuid("ad_id")
+      .notNull()
+      .references(() => ads.id, { onDelete: "cascade" }),
+    /** 'impression' | 'click' */
+    kind: text("kind").notNull(),
+    /** 'sponsored' | 'rail' | 'banner' */
+    slot: text("slot").notNull(),
+    /** Salted hash of the caller's IP — rate limiting only, as elsewhere. */
+    ipHash: text("ip_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // The stats view groups by ad; the write path counts by caller.
+    index("ad_events_ad_kind_idx").on(table.adId, table.kind),
+    index("ad_events_ip_created_idx").on(table.ipHash, table.createdAt),
+  ],
+);
+
 /** Singleton row: contact links + resume. */
 export const contact = pgTable("contact", {
   id: uuid("id").primaryKey().defaultRandom(),

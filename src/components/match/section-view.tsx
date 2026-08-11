@@ -2,6 +2,7 @@
 
 import { markdownToPlainText } from "@/lib/match-markdown";
 import { SKILLS_SECTION_SLUG, type MatchSection } from "@/lib/match-tabs";
+import { AdBanner } from "./match-ads";
 import { EntryGroup, PreviewCard, SkillChip } from "./entry-views";
 import { MatchRichText } from "./match-rich-text";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
@@ -40,6 +41,9 @@ export function SectionView({ section }: { section: MatchSection }) {
           <RankedSkills />
         </div>
       ) : null}
+
+      {/* Targeted at the page it sits under, not at a search. */}
+      <AdBanner terms={`${section.title} ${markdownToPlainText(section.body)}`} />
     </article>
   );
 }

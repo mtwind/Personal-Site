@@ -286,6 +286,57 @@ export function parseKnowledgeNoteForm(formData: FormData) {
   });
 }
 
+export const adSchema = z.object({
+  id: z.uuid().nullable(),
+  brand: z.string().trim().min(1, "Give the ad a brand").max(80),
+  headline: z.string().trim().min(1, "Give the ad a headline").max(120),
+  description: z.string().trim().max(300),
+  displayUrl: z.string().trim().max(120),
+  targetUrl: z.url("The ad needs a valid link").max(500),
+  iconSlug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9.-]+$/, "Icon slug is lowercase letters, digits and dashes")
+    .max(60)
+    .nullable(),
+  color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex like #FC4C02")
+    .nullable(),
+  iconUrl: z.url("Custom logo must be a valid URL").max(500).nullable(),
+  keywords: z.array(z.string().trim().min(1).max(40)).max(40),
+  slots: z
+    .array(z.enum(["sponsored", "rail", "banner"]))
+    .min(1, "Pick at least one placement"),
+  active: z.boolean(),
+  sortOrder: z.number().int().min(0).max(999),
+});
+
+export type AdInput = z.infer<typeof adSchema>;
+
+export function parseAdForm(formData: FormData) {
+  const order = Number(formData.get("sortOrder"));
+
+  return adSchema.safeParse({
+    id: emptyToNull(formData.get("id")),
+    brand: requiredString(formData.get("brand")),
+    headline: requiredString(formData.get("headline")),
+    description: requiredString(formData.get("description")),
+    displayUrl: requiredString(formData.get("displayUrl")),
+    targetUrl: requiredString(formData.get("targetUrl")),
+    iconSlug: emptyToNull(formData.get("iconSlug"))?.toLowerCase() ?? null,
+    color: emptyToNull(formData.get("color")),
+    iconUrl: emptyToNull(formData.get("iconUrl")),
+    keywords: tagList(formData.get("keywords")),
+    // Checkbox groups post nothing when every box is cleared, which the
+    // schema then rejects — a placement-less ad can't run anywhere.
+    slots: formData.getAll("slots"),
+    active: formData.get("active") === "on",
+    sortOrder: Number.isFinite(order) ? order : 0,
+  });
+}
+
 /** First human-readable issue from a failed parse. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";

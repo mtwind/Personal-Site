@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { HOME_KEY, type MatchTab } from "@/lib/match-tabs";
+import { SHELL_WIDTH } from "./match-layout";
 
 interface TabStripProps {
   tabs: MatchTab[];
@@ -102,7 +103,7 @@ export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
     // merges into the content below it, the way a browser tab joins its
     // page.
     <div className="border-b border-[#c6cad0] bg-[#dee1e6] pt-2">
-      <div className="mx-auto flex max-w-3xl items-end gap-1 px-4">
+      <div className={`${SHELL_WIDTH} flex items-end gap-1 px-4`}>
         <div
           ref={stripRef}
           role="tablist"
@@ -184,7 +185,7 @@ export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
 
       {/* Only present once the tabs outgrow the strip. */}
       {overflowing ? (
-        <div className="mx-auto max-w-3xl px-4 pt-1 pb-1">
+        <div className={`${SHELL_WIDTH} px-4 pt-1 pb-1`}>
           <div
             onPointerDown={onTrackDown}
             className="group h-1.5 w-full cursor-pointer rounded-full bg-black/10"
