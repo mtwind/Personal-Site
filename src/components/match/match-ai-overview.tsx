@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ReferenceResolver, ReferenceTarget } from "@/lib/match-references";
-import { MatchRichText } from "./match-rich-text";
+import { ReferenceChip } from "./match-rich-text";
 
 type Phase = "loading" | "streaming" | "done" | "failed";
 
@@ -13,8 +13,41 @@ interface Turn {
   answer: string;
 }
 
-/** Frames to spend absorbing whatever backlog the stream has handed over. */
-const CATCHUP_FRAMES = 6;
+/**
+ * Reveal tuning.
+ *
+ * The reveal is driven by elapsed time, not by frames or by deltas, so the
+ * pace is a property of the clock rather than of however the network
+ * happened to chunk the response. Rate changes are low-passed, so it
+ * accelerates and eases instead of stepping — a sudden change in speed
+ * reads as lag just as much as a jump does.
+ *
+ * `LEAD_SECONDS` is how far behind the stream the reveal aims to stay.
+ * Deriving the rate from that backlog makes it self-regulating: it eases
+ * off when the model generates slowly, so it never catches up and stalls
+ * mid-word, and speeds up when there is plenty in hand.
+ */
+const LEAD_SECONDS = 1.3;
+
+/** Once the answer is complete there is nothing to hold back for. */
+const TAIL_SECONDS = 0.7;
+
+const MIN_CPS = 20; // never appear frozen
+const MAX_CPS = 250; // still reads as typing, not as a paste
+const RATE_EASING = 4; // how fast the rate approaches its target, per second
+
+/**
+ * Characters to bank before showing anything. The loading bar covers this
+ * so the reveal opens on a sentence already in hand and never starves
+ * mid-word waiting for the next delta.
+ */
+const PREBUFFER_CHARS = 110;
+
+/** Longest the loader holds when generation is slower than the prebuffer. */
+const MAX_PREBUFFER_MS = 1600;
+
+/** Guards the cursor against a huge dt after the tab was backgrounded. */
+const MAX_FRAME_S = 0.05;
 
 /**
  * Drop a half-typed citation from the tail.
@@ -158,8 +191,10 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
   const answered = visible.some((turn) => turn.answer.trim().length > 0);
 
   // The first answer failing means no card at all — the results below are
-  // the floor, and an empty card on top of them is worse than none.
-  if (!answered && !notice) return null;
+  // the floor, and an empty card on top of them is worse than none. While
+  // still working, the card is present and shows the loading bar; gating
+  // this on `answered` alone made it pop in cold on the first character.
+  if (!busy && !answered && !notice) return null;
 
   return (
     <section
@@ -183,19 +218,15 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
               {turn.question}
             </p>
           ) : null}
-          {turn.answer.trim() ? (
-            <Answer
-              key={index}
-              text={turn.answer}
-              live={index === visible.length - 1 && busy}
-              resolver={resolver}
-              onOpen={onOpen}
-            />
-          ) : null}
+          <Answer
+            key={index}
+            text={turn.answer}
+            live={index === visible.length - 1 && busy}
+            resolver={resolver}
+            onOpen={onOpen}
+          />
         </div>
       ))}
-
-      {phase === "loading" ? <ShimmerLines /> : null}
 
       {notice ? (
         <p className="mt-3 text-[13px] text-[#5f6368]">{notice}</p>
@@ -225,14 +256,19 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
 }
 
 /**
- * One answer, revealed a character at a time.
+ * One answer, revealed continuously.
  *
- * The stream arrives in bursts — a single delta can carry a dozen
- * characters — so writing each delta straight to the DOM makes the answer
- * land in visible blocks. Revealing at a per-frame rate proportional to
- * how far behind the display is turns those bursts into continuous
- * typing, and guarantees it catches up rather than drifting further
- * behind on a fast stream.
+ * Three things make the reveal seamless rather than "lagging into place":
+ *
+ * - It is driven by elapsed time, so the pace is smooth regardless of how
+ *   the network chunked the response or what the frame rate is doing.
+ * - Nothing shows until a sentence or so is banked, so the reveal never
+ *   catches up to the stream and stalls mid-word. The loading bar covers
+ *   that wait.
+ * - Reveal is measured in *rendered* characters, so a citation label types
+ *   out like any other word. Counting raw characters meant the text froze
+ *   for the length of `[[project:Simple C Compiler]]` and then popped the
+ *   label in whole.
  */
 function Answer({
   text,
@@ -247,43 +283,148 @@ function Answer({
 }) {
   const [shown, setShown] = useState(0);
 
+  // Half-typed citations are cut before parsing: an unclosed token would
+  // otherwise parse as literal text and flash its brackets on screen.
+  const segments = useMemo(
+    () => resolver.parse(withoutPartialToken(text)),
+    [resolver, text],
+  );
+  const total = useMemo(
+    () =>
+      segments.reduce(
+        (sum, segment) =>
+          sum + (segment.type === "text" ? segment.text.length : segment.label.length),
+        0,
+      ),
+    [segments],
+  );
+
+  // The loop reads these rather than depending on them, so it runs once
+  // for the life of the answer instead of restarting on every delta.
+  const totalRef = useRef(total);
+  const liveRef = useRef(live);
   useEffect(() => {
-    if (shown >= text.length) return;
+    totalRef.current = total;
+    liveRef.current = live;
+  }, [total, live]);
 
-    const frame = requestAnimationFrame(() => {
-      // Motion is the whole point here, so honour a reader who has asked
-      // for less of it by skipping straight to the full text.
-      const reduce = window.matchMedia?.(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-      setShown((count) =>
-        reduce
-          ? text.length
-          : Math.min(
-              text.length,
-              count + Math.max(1, Math.ceil((text.length - count) / CATCHUP_FRAMES)),
-            ),
+  useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    let firstCharAt = 0;
+    let cursor = 0; // fractional characters revealed
+    let rate = MIN_CPS;
+    let opened = false;
+
+    // Motion is the whole point here, so a reader who asked for less of
+    // it gets the text immediately.
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches;
+
+    const tick = (now: number) => {
+      const available = totalRef.current;
+      const settled = !liveRef.current;
+      const elapsed = Math.min((now - last) / 1000, MAX_FRAME_S);
+      last = now;
+
+      if (available > 0 && firstCharAt === 0) firstCharAt = now;
+
+      // Hold until there is a buffer worth reading — or until the stream
+      // is done, or it has simply taken too long to fill.
+      if (!opened) {
+        opened =
+          reduce ||
+          available >= PREBUFFER_CHARS ||
+          (settled && available > 0) ||
+          (firstCharAt > 0 && now - firstCharAt > MAX_PREBUFFER_MS);
+      }
+
+      if (opened) {
+        if (reduce) {
+          cursor = available;
+        } else {
+          // Drain the backlog over a fixed horizon, then ease toward that
+          // rate rather than snapping to it — a step change in speed reads
+          // as lag just as much as a jump does.
+          const backlog = available - cursor;
+          const horizon = settled ? TAIL_SECONDS : LEAD_SECONDS;
+          const target = Math.min(MAX_CPS, Math.max(MIN_CPS, backlog / horizon));
+          rate += (target - rate) * Math.min(1, elapsed * RATE_EASING);
+          cursor = Math.min(available, cursor + rate * elapsed);
+        }
+      }
+
+      const next = Math.floor(cursor);
+      setShown((prev) => (prev === next ? prev : next));
+
+      // Keep going until the answer is complete and fully revealed.
+      if (!settled || cursor < available) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const revealing = shown < total || live;
+
+  // The loader is part of the answer, not a sibling that gets swapped
+  // out — so opening the reveal is one transition, not two.
+  if (shown === 0) return revealing ? <SearchingBar /> : null;
+
+  let budget = shown;
+  const nodes: React.ReactNode[] = [];
+  for (const [index, segment] of segments.entries()) {
+    if (budget <= 0) break;
+    if (segment.type === "text") {
+      const slice = segment.text.slice(0, budget);
+      budget -= slice.length;
+      nodes.push(<Fragment key={index}>{slice}</Fragment>);
+    } else {
+      const label = segment.label.slice(0, budget);
+      budget -= label.length;
+      nodes.push(
+        <ReferenceChip
+          key={index}
+          label={label}
+          partial={label.length < segment.label.length}
+          onOpen={() => onOpen({ kind: segment.kind, id: segment.id })}
+        />,
       );
-    });
-    return () => cancelAnimationFrame(frame);
-    // One frame is scheduled per render; advancing `shown` schedules the
-    // next, and the loop stops on its own once it has caught up.
-  }, [shown, text]);
-
-  // Cut any half-revealed citation so a chip appears whole or not at all.
-  const visible = withoutPartialToken(text.slice(0, shown));
-  const typing = live || shown < text.length;
+    }
+  }
 
   return (
     <p className="text-[15px] leading-7 text-[#3c4043]">
-      <MatchRichText text={visible} resolver={resolver} onOpen={onOpen} />
-      {typing ? (
+      {nodes}
+      {revealing ? (
         <span
           aria-hidden
           className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.18em] bg-[#1a73e8] [animation:pane-fade_1s_ease-in-out_infinite_alternate]"
         />
       ) : null}
     </p>
+  );
+}
+
+/**
+ * Google's indeterminate loading bar, shown while the answer banks up.
+ *
+ * The box reserves about the height the first couple of lines will occupy,
+ * so the card does not jump when the bar gives way to text.
+ */
+function SearchingBar() {
+  return (
+    <div className="min-h-[3.5rem] pt-1" aria-hidden>
+      <div className="h-[3px] w-full overflow-hidden rounded-full bg-[#f1f3f4]">
+        <div
+          className="h-full w-[200%] [animation:match-sweep_1.5s_linear_infinite]"
+          style={{
+            background:
+              "linear-gradient(90deg,#4285F4,#EA4335,#FBBC04,#34A853,#4285F4,#EA4335,#FBBC04,#34A853,#4285F4)",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -362,15 +503,3 @@ function SparkIcon() {
   );
 }
 
-function ShimmerLines() {
-  return (
-    <div className="mt-3 space-y-2" aria-hidden>
-      {["w-full", "w-[92%]", "w-[68%]"].map((width) => (
-        <div
-          key={width}
-          className={`h-3.5 ${width} rounded [animation:match-shimmer_1.1s_ease-in-out_infinite_alternate]`}
-        />
-      ))}
-    </div>
-  );
-}
