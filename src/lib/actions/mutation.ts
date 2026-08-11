@@ -3,13 +3,13 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 
 import { requireEditor } from "@/lib/auth";
-import { UploadError } from "@/lib/storage";
+import { UserFacingError } from "@/lib/user-facing-error";
 import type { ActionResult } from "./validation";
 
 /**
  * Shared wrapper for every profile mutation: editor check, error
- * normalization, page revalidation. UploadError messages are written
- * to be user-safe and pass through verbatim.
+ * normalization, page revalidation. UserFacingError messages are
+ * written for the user and pass through verbatim.
  */
 export async function runMutation(
   mutate: () => Promise<void>,
@@ -21,7 +21,7 @@ export async function runMutation(
     return { ok: true };
   } catch (error: unknown) {
     console.error("Profile mutation failed:", error);
-    if (error instanceof UploadError) {
+    if (error instanceof UserFacingError) {
       return { ok: false, error: error.message };
     }
     const message =

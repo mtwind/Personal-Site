@@ -13,6 +13,8 @@ interface BucketSpec {
   name: string;
   allowedMimeTypes: string[];
   description: string;
+  /** Private buckets are read through short-lived signed URLs only. */
+  isPublic?: boolean;
 }
 
 const BUCKETS: BucketSpec[] = [
@@ -32,6 +34,23 @@ const BUCKETS: BucketSpec[] = [
     allowedMimeTypes: ["application/pdf"],
     description: "PDF only, 5MB limit",
   },
+  {
+    // Reference letters and the like — never publicly listable, even
+    // when the note that carries their text is published.
+    name: "documents",
+    allowedMimeTypes: [
+      "application/pdf",
+      "text/plain",
+      "text/markdown",
+      "text/csv",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ],
+    description: "background documents, 5MB limit",
+    isPublic: false,
+  },
 ];
 
 async function main(): Promise<void> {
@@ -48,15 +67,18 @@ async function main(): Promise<void> {
       console.log(`Bucket "${spec.name}" already exists — skipping.`);
       continue;
     }
+    const isPublic = spec.isPublic ?? true;
     const { error } = await storage.createBucket(spec.name, {
-      public: true,
+      public: isPublic,
       fileSizeLimit: "5MB",
       allowedMimeTypes: spec.allowedMimeTypes,
     });
     if (error) {
       throw new Error(`createBucket ${spec.name} failed: ${error.message}`);
     }
-    console.log(`Created public bucket "${spec.name}" (${spec.description}).`);
+    console.log(
+      `Created ${isPublic ? "public" : "private"} bucket "${spec.name}" (${spec.description}).`,
+    );
   }
 }
 

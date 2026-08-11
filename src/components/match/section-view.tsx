@@ -1,5 +1,6 @@
 "use client";
 
+import { markdownToPlainText } from "@/lib/match-markdown";
 import { SKILLS_SECTION_SLUG, type MatchSection } from "@/lib/match-tabs";
 import { EntryGroup, PreviewCard, SkillChip } from "./entry-views";
 import { MatchRichText } from "./match-rich-text";
@@ -54,7 +55,7 @@ function RankedSkills() {
   if (ranked.length === 0) return null;
 
   const [leader, ...rest] = ranked;
-  const { experiences, projects } = leader.usage;
+  const { experiences, projects, notes } = leader.usage;
 
   return (
     <div className="space-y-4">
@@ -87,6 +88,16 @@ function RankedSkills() {
                 title={project.name}
                 headline={project.headline}
                 note={project.courseLabel ?? project.dateRange}
+              />
+            </li>
+          ))}
+          {notes.map((note) => (
+            <li key={note.id}>
+              <PreviewCard
+                target={{ kind: "note", id: note.id }}
+                title={note.title}
+                headline={markdownToPlainText(note.body).slice(0, 180)}
+                note={note.hasDocument ? "Document" : null}
               />
             </li>
           ))}

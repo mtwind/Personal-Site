@@ -6,6 +6,7 @@ import {
   buildReferenceIndex,
   createReferenceResolver,
 } from "@/lib/match-references";
+import { getGroundingNotes } from "@/lib/knowledge-data";
 import { buildSections } from "@/lib/match-tabs";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
@@ -17,18 +18,22 @@ import { getTeamMatchPage } from "@/lib/team-match-data";
  * `cache` keeps that to a single build rather than one per segment.
  */
 export const getMatchContext = cache(async () => {
-  const [page, profile] = await Promise.all([
+  const [page, profile, notes] = await Promise.all([
     getTeamMatchPage(),
     getProfileData(),
+    getGroundingNotes(),
   ]);
 
   if (!page) return null;
 
-  const index = buildReferenceIndex(profile);
+  // Only published notes become pages; the rest ground answers alone.
+  const index = buildReferenceIndex(profile, notes);
 
   return {
     page,
     profile,
+    /** Private and published alike — the corpus, not the site map. */
+    notes,
     index,
     resolver: createReferenceResolver(index),
     sections: buildSections(page.sections),

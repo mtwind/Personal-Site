@@ -250,6 +250,42 @@ export function parseFeedbackForm(formData: FormData) {
   });
 }
 
+export const knowledgeNoteSchema = z.object({
+  id: z.uuid().nullable(),
+  kind: z.enum(["note", "document"]),
+  title: z.string().trim().min(1, "Give the note a title").max(200),
+  body: z.string().max(200000),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12),
+  visibility: z.enum(["draft", "private", "published"]),
+  skills: z.array(skillSelectionSchema).max(30),
+});
+
+export type KnowledgeNoteInput = z.infer<typeof knowledgeNoteSchema>;
+
+/** "visa, relocation , " → ["visa", "relocation"] */
+function tagList(value: FormDataEntryValue | null): string[] {
+  if (typeof value !== "string") return [];
+  const seen = new Set(
+    value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag !== ""),
+  );
+  return [...seen];
+}
+
+export function parseKnowledgeNoteForm(formData: FormData) {
+  return knowledgeNoteSchema.safeParse({
+    id: emptyToNull(formData.get("id")),
+    kind: requiredString(formData.get("kind")),
+    title: requiredString(formData.get("title")),
+    body: typeof formData.get("body") === "string" ? formData.get("body") : "",
+    tags: tagList(formData.get("tags")),
+    visibility: requiredString(formData.get("visibility")),
+    skills: parseJsonField(formData.get("skills")),
+  });
+}
+
 /** First human-readable issue from a failed parse. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";

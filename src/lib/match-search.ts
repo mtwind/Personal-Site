@@ -9,6 +9,7 @@
  * Pure and serializable-in/serializable-out, so it can be unit-checked
  * without a browser or a database.
  */
+import { markdownToPlainText } from "@/lib/match-markdown";
 import type {
   MatchReferenceIndex,
   ReferenceKind,
@@ -140,6 +141,21 @@ const KIND_INTENT: Record<string, ReferenceKind> = {
   work: "experience",
   worked: "experience",
   working: "experience",
+
+  background: "note",
+  culture: "note",
+  interview: "note",
+  interviews: "note",
+  interviewed: "note",
+  matching: "note",
+  prefer: "note",
+  preference: "note",
+  preferences: "note",
+  relocate: "note",
+  relocation: "note",
+  visa: "note",
+  want: "note",
+  wants: "note",
 
   class: "course",
   classes: "course",
@@ -324,10 +340,11 @@ function scoreFields(fields: Field[], terms: string[]) {
  * a role carries more weight than a project that scored the same.
  */
 const KIND_ORDER: Record<ReferenceKind, number> = {
-  experience: 0,
-  project: 1,
-  course: 2,
-  skill: 3,
+  note: 0,
+  experience: 1,
+  project: 2,
+  course: 3,
+  skill: 4,
 };
 
 /**
@@ -442,6 +459,33 @@ export function searchReferences(
     }
   }
 
+  for (const [ordinal, note] of index.notes.entries()) {
+    // Markdown marks are punctuation to a keyword search: strip them so
+    // "**Python**" matches "python" and a heading's `##` scores nothing.
+    const prose = markdownToPlainText(note.body);
+    const fields: Field[] = [
+      { text: note.title, weight: WEIGHT.name },
+      { text: prose, weight: WEIGHT.bullet },
+      ...note.skillIds.map((id) => ({
+        text: skillNames.get(id) ?? "",
+        weight: WEIGHT.skill,
+      })),
+    ];
+    const { score, matched } = scoreFields(fields, terms);
+    const ranked = rank("note", score, ordinal);
+    if (ranked > 0) {
+      hits.push({
+        target: { kind: "note", id: note.id },
+        title: note.title,
+        // The opening prose stands in for a headline notes don't have.
+        headline: prose.slice(0, 180),
+        note: note.hasDocument ? "Document" : null,
+        score: ranked,
+        matched,
+      });
+    }
+  }
+
   for (const [ordinal, skill] of index.skills.entries()) {
     const { score, matched } = scoreFields(
       [{ text: skill.name, weight: WEIGHT.skillName }],
@@ -451,7 +495,8 @@ export function searchReferences(
     if (ranked > 0) {
       const usedBy =
         index.projects.filter((p) => p.skillIds.includes(skill.id)).length +
-        index.experiences.filter((e) => e.skillIds.includes(skill.id)).length;
+        index.experiences.filter((e) => e.skillIds.includes(skill.id)).length +
+        index.notes.filter((n) => n.skillIds.includes(skill.id)).length;
       hits.push({
         target: { kind: "skill", id: skill.id },
         title: skill.name,

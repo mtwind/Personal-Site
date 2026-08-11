@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { adminReturn } from "@/lib/admin-return";
 import { getAuthState } from "@/lib/auth";
 import {
   getFeedbackSubmissions,
@@ -83,15 +84,18 @@ export default async function FeedbackAdminPage() {
   const { isEditor } = await getAuthState();
   if (!isEditor) notFound();
 
-  const submissions = await getFeedbackSubmissions();
+  const [submissions, back] = await Promise.all([
+    getFeedbackSubmissions(),
+    adminReturn(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
       <Link
-        href="/"
+        href={back.href}
         className="font-sans text-[11px] font-semibold tracking-[0.18em] text-(--dim) uppercase transition-colors duration-200 hover:text-(--accent)"
       >
-        ← Back to site
+        {back.label}
       </Link>
       <h1 className="mt-6 text-3xl text-(--title)">Feedback</h1>
       <p className="mt-1 font-sans text-[12.5px] text-(--dim)">

@@ -234,6 +234,11 @@ function TabGlyph({ kind }: { kind: MatchTab["kind"] }) {
           <rect x="3" y="7" width="18" height="13" rx="1.5" />
           <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
         </>
+      ) : kind === "note" ? (
+        <>
+          <path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+          <path d="M8 11h8M8 15h5" />
+        </>
       ) : kind === "course" ? (
         <>
           <path d="M12 4 2 9l10 5 10-5z" />

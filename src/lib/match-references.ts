@@ -15,6 +15,7 @@
  * server from `ProfileData` and handed to the client shell as props.
  */
 import { formatDateRange } from "@/lib/format";
+import type { KnowledgeNote } from "@/lib/knowledge-data";
 import type { ProfileData } from "@/lib/profile-data";
 import { skillIconUrl, type Skill } from "@/lib/skill-icon";
 
@@ -79,14 +80,36 @@ export interface ReferenceCourse {
   projectIds: string[];
 }
 
+/**
+ * A published background note. Private ones never reach the index —
+ * they ground the overview's answers but have no page to link to, so
+ * putting them here would be inviting a citation that 404s.
+ */
+export interface ReferenceNote {
+  id: string;
+  slug: string;
+  title: string;
+  /** The prose itself; notes are short enough to render whole. */
+  body: string;
+  /** True when a document is attached, so the page can offer it. */
+  hasDocument: boolean;
+  skillIds: string[];
+}
+
 export interface MatchReferenceIndex {
   projects: ReferenceProject[];
   experiences: ReferenceExperience[];
   courses: ReferenceCourse[];
   skills: ReferenceSkill[];
+  notes: ReferenceNote[];
 }
 
-export type ReferenceKind = "project" | "skill" | "experience" | "course";
+export type ReferenceKind =
+  | "project"
+  | "skill"
+  | "experience"
+  | "course"
+  | "note";
 
 /** URL segment each kind of entry lives under. */
 export const KIND_SEGMENT: Record<ReferenceKind, string> = {
@@ -94,6 +117,7 @@ export const KIND_SEGMENT: Record<ReferenceKind, string> = {
   experience: "experience",
   course: "course",
   skill: "skill",
+  note: "note",
 };
 
 /** Singular label for a kind, as shown above an entry's title. */
@@ -102,6 +126,7 @@ export const KIND_LABEL: Record<ReferenceKind, string> = {
   experience: "Experience",
   course: "Course",
   skill: "Skill",
+  note: "Background",
 };
 
 /** An entry the reader can open. */
@@ -124,6 +149,8 @@ export interface SimilarProject {
 export interface SkillUsage {
   experiences: ReferenceExperience[];
   projects: ReferenceProject[];
+  /** Published notes only — a private note has no page to link to. */
+  notes: ReferenceNote[];
 }
 
 /**
@@ -133,7 +160,7 @@ export interface SkillUsage {
  * plain text instead of swallowing the rest of the paragraph.
  */
 const TOKEN_PATTERN =
-  /\[\[(project|skill|course|experience):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+  /\[\[(project|skill|course|experience|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
@@ -182,7 +209,11 @@ export function uniqueSlugger(): (value: string) => string {
  * Course projects are included — a compiler or OS project is usually
  * coursework, and those are exactly the ones worth linking.
  */
-export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
+export function buildReferenceIndex(
+  profile: ProfileData,
+  /** Published background notes; private and draft ones are not pages. */
+  notes: KnowledgeNote[] = [],
+): MatchReferenceIndex {
   const courseSlug = uniqueSlugger();
   const courses: ReferenceCourse[] = profile.courses.map((course) => ({
     id: course.id,
@@ -208,7 +239,7 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
 
   const skillsById = new Map<string, ReferenceSkill>();
   const skillSlug = uniqueSlugger();
-  const collectSkills = (entries: { skills: Skill[] }[]) => {
+  const collectSkills = (entries: readonly { skills: Skill[] }[]) => {
     for (const entry of entries) {
       for (const skill of entry.skills) {
         if (skillsById.has(skill.id)) continue;
@@ -223,9 +254,11 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
   };
   collectSkills(allProjects);
   collectSkills(profile.experiences);
+  collectSkills(notes);
 
   const projectSlug = uniqueSlugger();
   const experienceSlug = uniqueSlugger();
+  const noteSlug = uniqueSlugger();
 
   return {
     projects: allProjects.map((project) => ({
@@ -260,6 +293,16 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
     })),
     courses,
     skills: [...skillsById.values()],
+    notes: notes
+      .filter((note) => note.visibility === "published")
+      .map((note) => ({
+        id: note.id,
+        slug: noteSlug(note.title),
+        title: note.title,
+        body: note.body,
+        hasDocument: note.filePath !== null,
+        skillIds: note.skills.map((skill) => skill.id),
+      })),
   };
 }
 
@@ -282,6 +325,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
   const skillsById = new Map(index.skills.map((s) => [s.id, s]));
   const experiencesById = new Map(index.experiences.map((e) => [e.id, e]));
   const coursesById = new Map(index.courses.map((c) => [c.id, c]));
+  const notesById = new Map(index.notes.map((n) => [n.id, n]));
 
   const projectsByName = new Map(
     index.projects.map((p) => [normalizeKey(p.name), p]),
@@ -304,11 +348,16 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     ]),
   );
 
+  const notesByName = new Map(
+    index.notes.map((n) => [normalizeKey(n.title), n]),
+  );
+
   const bySlug: Record<ReferenceKind, Map<string, { id: string }>> = {
     project: new Map(index.projects.map((p) => [p.slug, p])),
     experience: new Map(index.experiences.map((e) => [e.slug, e])),
     course: new Map(index.courses.map((c) => [c.slug, c])),
     skill: new Map(index.skills.map((s) => [s.slug, s])),
+    note: new Map(index.notes.map((n) => [n.slug, n])),
   };
 
   const projectSkillSets = new Map(
@@ -329,6 +378,10 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
 
   function course(id: string): ReferenceCourse | null {
     return coursesById.get(id) ?? null;
+  }
+
+  function note(id: string): ReferenceNote | null {
+    return notesById.get(id) ?? null;
   }
 
   /** Kind-agnostic lookup, for tabs and links that only carry a target. */
@@ -354,6 +407,18 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
               id: found.id,
               slug: found.slug,
               title: found.courseNumber,
+              iconUrl: null,
+            }
+          : null;
+      }
+      case "note": {
+        const found = notesById.get(target.id);
+        return found
+          ? {
+              kind: "note",
+              id: found.id,
+              slug: found.slug,
+              title: found.title,
               iconUrl: null,
             }
           : null;
@@ -410,7 +475,9 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
             ? skillsByName.get(key)
             : kind === "course"
               ? coursesByName.get(key)
-              : experiencesByName.get(key);
+              : kind === "note"
+                ? notesByName.get(key)
+                : experiencesByName.get(key);
 
       // Unresolved tokens read as plain prose rather than leaking syntax.
       if (!target) {
@@ -469,7 +536,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
       }));
   }
 
-  /** Every experience and project tagged with a skill. */
+  /** Every experience, project and published note tagged with a skill. */
   function workUsingSkill(skillId: string): SkillUsage {
     return {
       experiences: index.experiences.filter((experience) =>
@@ -478,6 +545,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
       projects: index.projects.filter((project) =>
         project.skillIds.includes(skillId),
       ),
+      notes: index.notes.filter((note) => note.skillIds.includes(skillId)),
     };
   }
 
@@ -501,7 +569,10 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
         return {
           skill,
           usage,
-          score: usage.experiences.length * 2 + usage.projects.length,
+          score:
+            usage.experiences.length * 2 +
+            usage.projects.length +
+            usage.notes.length,
         };
       })
       .filter((entry) => entry.score > 0)
@@ -515,6 +586,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     skill,
     experience,
     course,
+    note,
     entry,
     fromSlug,
     parse,

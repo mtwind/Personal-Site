@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { KnowledgeNote } from "@/lib/knowledge-data";
 import type { MatchReferenceIndex } from "@/lib/match-references";
 
 /**
@@ -15,6 +16,8 @@ import type { MatchReferenceIndex } from "@/lib/match-references";
 export function buildProfileCorpus(
   index: MatchReferenceIndex,
   page: { headline: string; intro: string; sections: { title: string; body: string }[] },
+  /** Private + published background notes. Drafts never get this far. */
+  notes: KnowledgeNote[] = [],
 ): string {
   const skillName = new Map(index.skills.map((s) => [s.id, s.name]));
   const lines: string[] = [];
@@ -24,6 +27,27 @@ export function buildProfileCorpus(
   if (page.intro) lines.push(page.intro);
   for (const section of page.sections) {
     lines.push(`### ${section.title}`, section.body);
+  }
+
+  if (notes.length > 0) {
+    // Background the public site doesn't carry. Published notes have a
+    // page and are marked citable; private ones are facts with no link,
+    // so the model must state them without a citation rather than
+    // inventing one.
+    lines.push("", "## Background notes");
+    for (const note of notes) {
+      lines.push(
+        `### ${note.title}` +
+          (note.visibility === "published"
+            ? ` — citable as [[note:${note.title}]]`
+            : " — not citable (no page); use the facts without a citation"),
+      );
+      if (note.fileName) lines.push(`Transcribed from: ${note.fileName}`);
+      if (note.skills.length > 0) {
+        lines.push(`Skills: ${note.skills.map((s) => s.name).join(", ")}`);
+      }
+      lines.push(note.body);
+    }
   }
 
   lines.push("", "## Experience");
@@ -73,8 +97,10 @@ export function buildProfileCorpus(
     const experiences = index.experiences.filter((e) =>
       e.skillIds.includes(skill.id),
     ).length;
+    const noted = index.notes.filter((n) => n.skillIds.includes(skill.id)).length;
     lines.push(
-      `- [[skill:${skill.name}]] — ${projects} project(s), ${experiences} role(s)`,
+      `- [[skill:${skill.name}]] — ${projects} project(s), ${experiences} role(s)` +
+        (noted > 0 ? `, ${noted} background note(s)` : ""),
     );
   }
 
@@ -98,6 +124,7 @@ Citations — cite entries with these exact tokens, inline:
 - A project: [[project:Exact Project Name]]
 - A skill: [[skill:Exact Skill Name]]
 - A course: [[course:CS 4120]] — the course number, exactly as listed
+- A background note: [[note:Exact Note Title]] — only the ones marked citable
 Use the name exactly as it appears in the profile. They render as links a reader can click. Cite the entries your answer actually rests on; two or three is usually right, and do not cite the same one twice.
 
 Style:

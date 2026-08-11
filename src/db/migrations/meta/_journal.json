@@ -71,6 +71,34 @@
       "when": 1786403411110,
       "tag": "0009_search_queries_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786425585240,
+      "tag": "0010_knowledge_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786425585241,
+      "tag": "0011_knowledge_notes_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786463466113,
+      "tag": "0012_knowledge_note_skills",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786463466114,
+      "tag": "0013_knowledge_note_skills_rls",
+      "breakpoints": true
     }
   ]
 }

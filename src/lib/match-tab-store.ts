@@ -81,15 +81,36 @@ export function openTab(base: string, key: string): void {
 }
 
 /**
- * Close a page and report which one should take its place — its
- * right-hand neighbour, as in a browser, or home when it had none.
+ * Close a page. Home is never closable, so it is always still there to
+ * fall back to — which is what the caller does with the active tab.
  */
-export function closeTab(base: string, key: string): string {
+export function closeTab(base: string, key: string): void {
   const current = getTabs(base);
-  const position = current.indexOf(key);
-  if (key === HOME_KEY || position === -1) return key;
+  if (key === HOME_KEY || !current.includes(key)) return;
+  commit(
+    base,
+    current.filter((candidate) => candidate !== key),
+  );
+}
 
-  const remaining = current.filter((candidate) => candidate !== key);
-  commit(base, remaining);
-  return remaining[position] ?? remaining[remaining.length - 1] ?? HOME_KEY;
+/**
+ * Drop keys that no longer resolve.
+ *
+ * Renaming a project changes its slug, and the tab pointing at the old
+ * one becomes a path that 404s. Those tabs are already filtered out of
+ * the strip, but leaving them in storage means they accumulate across a
+ * visit — and, before this was hoisted out of the close path, meant
+ * closing a tab could navigate to one of them.
+ */
+export function pruneTabs(
+  base: string,
+  isLive: (key: string) => boolean,
+): void {
+  // Tested against the store's own keys rather than a rendered list:
+  // during hydration React hands components the *server* snapshot, so a
+  // caller comparing against what's on screen would prune every tab the
+  // visit had open and hadn't been re-read yet.
+  const current = getTabs(base);
+  const keep = current.filter((key) => key === HOME_KEY || isLive(key));
+  if (keep.length !== current.length) commit(base, keep);
 }

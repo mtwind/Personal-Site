@@ -12,7 +12,6 @@ import {
   media,
   projectSkills,
   projects,
-  skills,
 } from "@/db/schema";
 import {
   deleteStoredFileByUrl,
@@ -20,6 +19,7 @@ import {
   uploadResume,
 } from "@/lib/storage";
 import { runMutation } from "./mutation";
+import { resolveSkillIds } from "./skill-sync";
 import {
   firstIssue,
   idSchema,
@@ -42,37 +42,7 @@ async function syncSkills(
   ownerId: string,
   selections: SkillSelection[],
 ): Promise<void> {
-  const seen = new Set<string>();
-  const deduped = selections.filter((selection) => {
-    const key = selection.name.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  const skillIds: string[] = [];
-  for (const selection of deduped) {
-    const inserted = await db
-      .insert(skills)
-      .values({
-        name: selection.name,
-        iconSlug: selection.slug,
-        iconSource: selection.source,
-        iconVariant: selection.variant,
-        color: selection.color,
-      })
-      .onConflictDoNothing({ target: skills.name })
-      .returning({ id: skills.id });
-    const skillId =
-      inserted[0]?.id ??
-      (
-        await db
-          .select({ id: skills.id })
-          .from(skills)
-          .where(eq(skills.name, selection.name))
-      )[0]?.id;
-    if (skillId) skillIds.push(skillId);
-  }
+  const skillIds = await resolveSkillIds(selections);
 
   if (ownerType === "experience") {
     await db

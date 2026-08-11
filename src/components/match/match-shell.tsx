@@ -21,6 +21,7 @@ import {
   getServerTabs,
   getTabs,
   openTab,
+  pruneTabs,
   subscribeTabs,
 } from "@/lib/match-tab-store";
 import {
@@ -167,11 +168,28 @@ export function MatchShell({
     [keys, base, resolver, sections, homeTitle],
   );
 
-  /** Close a tab, handing focus to its right-hand neighbour like Chrome. */
+  // Storage outlives the entries it points at: a renamed project leaves
+  // a tab whose path now 404s. The strip already hides those; this takes
+  // them out of storage too, so they can't be navigated to.
+  useEffect(() => {
+    pruneTabs(
+      base,
+      (key) =>
+        key === active ||
+        resolveTab(base, key, resolver, sections, homeTitle) !== null,
+    );
+  }, [base, active, resolver, sections, homeTitle]);
+
+  /**
+   * Close a tab. Closing the one you're on returns to the page's home
+   * rather than to a neighbour — home is the one tab that always exists
+   * and always resolves, so it is the only landing spot that can't be a
+   * dead link.
+   */
   const onCloseTab = useCallback(
     (key: string) => {
-      const successor = closeTab(base, key);
-      if (key === active) router.push(base + successor);
+      closeTab(base, key);
+      if (key === active) router.push(base);
     },
     [active, base, router],
   );
@@ -212,6 +230,12 @@ export function MatchShell({
               </Link>
               {isEditor ? (
                 <div className="flex items-center gap-2">
+                  <Link
+                    href="/admin/knowledge"
+                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+                  >
+                    Background
+                  </Link>
                   <Link
                     href="/admin/feedback"
                     className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"

@@ -127,6 +127,20 @@ export const projectSkills = pgTable(
   (table) => [primaryKey({ columns: [table.projectId, table.skillId] })],
 );
 
+export const knowledgeNoteSkills = pgTable(
+  "knowledge_note_skills",
+  {
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => knowledgeNotes.id, { onDelete: "cascade" }),
+    skillId: uuid("skill_id")
+      .notNull()
+      .references(() => skills.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.noteId, table.skillId] })],
+);
+
 /** Media/link attachments for experiences and projects. */
 export const media = pgTable("media", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -165,6 +179,52 @@ export const teamMatchPage = pgTable("team_match_page", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Private background about the owner, written for the AI overview.
+ *
+ * The public site is a résumé: it says what he built, not what he is
+ * looking for, what he told an interviewer, or what a reference letter
+ * says about him. These notes carry that, and they reach visitors only
+ * through the overview's answers — except when published, which gives a
+ * note a page of its own that answers can cite.
+ */
+export const knowledgeNotes = pgTable(
+  "knowledge_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 'note' — freeform prose; 'document' — an uploaded file's text. */
+    kind: text("kind").notNull().default("note"),
+    title: text("title").notNull(),
+    /**
+     * The text the model is grounded on. For a document this starts as
+     * the extracted transcription and stays editable — extraction is a
+     * first draft, not a source of truth.
+     */
+    body: text("body").notNull().default(""),
+    /** Free-form labels, for the editor's own filing. Never shown. */
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    /**
+     * 'draft'  — the model never sees it.
+     * 'private'— grounds answers; has no page and cannot be cited.
+     * 'published' — also a page under the team-matching site.
+     */
+    visibility: text("visibility").notNull().default("private"),
+    /** Storage path in the private `documents` bucket, for kind=document. */
+    filePath: text("file_path"),
+    fileName: text("file_name"),
+    fileType: text("file_type"),
+    fileSize: integer("file_size"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("knowledge_notes_visibility_idx").on(table.visibility)],
+);
 
 /** Exit-survey submissions from the team-matching page. */
 export const feedbackSubmissions = pgTable("feedback_submissions", {

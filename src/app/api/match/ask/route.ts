@@ -11,6 +11,7 @@ import {
 } from "@/lib/ask-limits";
 import { askInstructions, buildProfileCorpus } from "@/lib/ask-prompt";
 import { getServerEnv } from "@/lib/env";
+import { getGroundingNotes } from "@/lib/knowledge-data";
 import { buildReferenceIndex } from "@/lib/match-references";
 import { getProfileData } from "@/lib/profile-data";
 import { getTeamMatchPage } from "@/lib/team-match-data";
@@ -140,16 +141,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const [profile, page] = await Promise.all([
+  const [profile, page, notes] = await Promise.all([
     getProfileData(),
     getTeamMatchPage(),
+    getGroundingNotes(),
   ]);
   if (!page) {
     return NextResponse.json({ error: "Unavailable." }, { status: 503 });
   }
 
   const ownerName = profile.about?.name ?? "Matthew Wind";
-  const corpus = buildProfileCorpus(buildReferenceIndex(profile), page);
+  const corpus = buildProfileCorpus(
+    buildReferenceIndex(profile, notes),
+    page,
+    notes,
+  );
 
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 

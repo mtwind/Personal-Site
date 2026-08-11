@@ -2,16 +2,19 @@
 
 import Link from "next/link";
 
+import { markdownToPlainText } from "@/lib/match-markdown";
 import {
   KIND_LABEL,
   type ReferenceCourse,
   type ReferenceExperience,
   type ReferenceMedia,
+  type ReferenceNote,
   type ReferenceProject,
   type ReferenceSkill,
   type ReferenceTarget,
 } from "@/lib/match-references";
 import { targetHref } from "@/lib/match-tabs";
+import { MatchProse } from "./match-prose";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 
 /**
@@ -22,12 +25,20 @@ import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
  * came from, the skills it used, the work a skill appears in — is a link
  * to that entry's own page.
  */
-export function EntryView({ target }: { target: ReferenceTarget }) {
+export function EntryView({
+  target,
+  /** Short-lived link to a note's attached document, signed server-side. */
+  documentUrl = null,
+}: {
+  target: ReferenceTarget;
+  documentUrl?: string | null;
+}) {
   const { resolver } = useMatch();
 
   const project = target.kind === "project" ? resolver.project(target.id) : null;
   const skill = target.kind === "skill" ? resolver.skill(target.id) : null;
   const course = target.kind === "course" ? resolver.course(target.id) : null;
+  const note = target.kind === "note" ? resolver.note(target.id) : null;
   const experience =
     target.kind === "experience" ? resolver.experience(target.id) : null;
 
@@ -35,6 +46,7 @@ export function EntryView({ target }: { target: ReferenceTarget }) {
     project?.name ??
     skill?.name ??
     experience?.title ??
+    note?.title ??
     (course ? `${course.courseNumber} · ${course.name}` : "Details");
 
   return (
@@ -58,6 +70,8 @@ export function EntryView({ target }: { target: ReferenceTarget }) {
           <ExperienceView experience={experience} />
         ) : course ? (
           <CourseView course={course} />
+        ) : note ? (
+          <NoteView note={note} documentUrl={documentUrl} />
         ) : skill ? (
           <SkillView skill={skill} />
         ) : (
@@ -218,10 +232,50 @@ function CourseView({ course }: { course: ReferenceCourse }) {
   );
 }
 
+/**
+ * A published background note: prose the public site doesn't carry,
+ * plus the document it was transcribed from when there is one.
+ */
+function NoteView({
+  note,
+  documentUrl,
+}: {
+  note: ReferenceNote;
+  documentUrl: string | null;
+}) {
+  return (
+    <>
+      <section className={CARD}>
+        <MatchProse text={note.body} />
+
+        {note.hasDocument ? (
+          documentUrl ? (
+            <a
+              href={documentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#dadce0] px-4 py-1.5 text-[13px] font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+            >
+              View the document
+              <span aria-hidden>↗</span>
+            </a>
+          ) : (
+            <p className="mt-5 text-[13px] text-[#5f6368]">
+              The document behind this note isn&apos;t available right now.
+            </p>
+          )
+        ) : null}
+      </section>
+
+      <TechStack skillIds={note.skillIds} />
+    </>
+  );
+}
+
 function SkillView({ skill }: { skill: ReferenceSkill }) {
   const { resolver } = useMatch();
-  const { experiences, projects } = resolver.workUsingSkill(skill.id);
-  const total = experiences.length + projects.length;
+  const { experiences, projects, notes } = resolver.workUsingSkill(skill.id);
+  const total = experiences.length + projects.length + notes.length;
 
   return (
     <>
@@ -268,6 +322,23 @@ function SkillView({ skill }: { skill: ReferenceSkill }) {
                   title={project.name}
                   headline={project.headline}
                   note={project.courseLabel ?? project.dateRange}
+                />
+              </li>
+            ))}
+          </ul>
+        </EntryGroup>
+      ) : null}
+
+      {notes.length > 0 ? (
+        <EntryGroup title="Background">
+          <ul className="space-y-2">
+            {notes.map((note) => (
+              <li key={note.id}>
+                <PreviewCard
+                  target={{ kind: "note", id: note.id }}
+                  title={note.title}
+                  headline={markdownToPlainText(note.body).slice(0, 180)}
+                  note={note.hasDocument ? "Document" : null}
                 />
               </li>
             ))}
