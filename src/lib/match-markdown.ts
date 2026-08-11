@@ -213,6 +213,98 @@ export function parseInline(source: string): MarkdownInline[] {
   return nodes;
 }
 
+/** A heading in the source, as its plain text and its level. */
+export interface MarkdownHeading {
+  level: 1 | 2 | 3 | 4;
+  text: string;
+}
+
+/**
+ * Every heading in a document, in order.
+ *
+ * This is what turns a long page into a set of destinations: each one
+ * gets an anchor on the page, and a search result lists the ones the
+ * query actually hit so a reader lands on the part they asked about
+ * rather than at the top.
+ *
+ * Anchors aren't minted here — the id has to agree with how the rest of
+ * the site slugs names, and that lives with the reference index.
+ */
+export function markdownHeadings(source: string): MarkdownHeading[] {
+  return parseMarkdown(source).flatMap((block) =>
+    block.type === "heading"
+      ? [{ level: block.level, text: inlineToPlainText(block.inline) }]
+      : [],
+  );
+}
+
+/**
+ * The prose before the first heading — a document's own lead.
+ *
+ * What a result shows under its title should read like an opening, and
+ * flattening the whole document would splice the headings into it: "…
+ * Team Something about teams Location …", with those same headings
+ * listed again underneath as jump links.
+ *
+ * A page that opens straight into a heading has no lead of its own, so
+ * its first section stands in — still prose, still its beginning, still
+ * without the heading word doubled.
+ */
+export function markdownLeadText(source: string): string {
+  const blocks = parseMarkdown(source);
+  const lead: string[] = [];
+
+  for (const block of blocks) {
+    if (block.type === "heading") break;
+    if (block.type === "paragraph") lead.push(inlineToPlainText(block.inline));
+    else if (block.type === "list") lead.push(...flattenItems(block.items));
+  }
+
+  const text = lead.join(" ").replace(/\s+/g, " ").trim();
+  if (text !== "") return text;
+
+  const firstSection = markdownSectionText(source, 0);
+  return firstSection === "" ? markdownToPlainText(source) : firstSection;
+}
+
+/**
+ * The prose that sits *under* a heading, up to the next one of the same
+ * level or shallower. Search snippets read from this, so a jump link can
+ * describe where it lands instead of repeating the page's opening line.
+ */
+export function markdownSectionText(
+  source: string,
+  /** Index into `markdownHeadings(source)`. */
+  headingIndex: number,
+): string {
+  const blocks = parseMarkdown(source);
+  const starts = blocks.flatMap((block, index) =>
+    block.type === "heading" ? [index] : [],
+  );
+  const start = starts[headingIndex];
+  if (start === undefined) return "";
+
+  const level = (blocks[start] as { level: number }).level;
+  const body: string[] = [];
+
+  for (const block of blocks.slice(start + 1)) {
+    if (block.type === "heading" && block.level <= level) break;
+    switch (block.type) {
+      case "heading":
+      case "paragraph":
+        body.push(inlineToPlainText(block.inline));
+        break;
+      case "list":
+        body.push(...flattenItems(block.items));
+        break;
+      case "rule":
+        break;
+    }
+  }
+
+  return body.join(" ").replace(/\s+/g, " ").trim();
+}
+
 /**
  * The same prose with its formatting stripped — for previews, search
  * snippets, and anywhere the marks would be read out as punctuation.

@@ -11,7 +11,12 @@ import {
 } from "@/components/edit/form-fields";
 import { clearAdStats, deleteAd, saveAd, toggleAd } from "@/lib/actions/ads";
 import type { ActionResult } from "@/lib/actions/validation";
-import { adIconUrl, AD_SLOTS, type AdSlot } from "@/lib/ad-targeting";
+import {
+  adIconUrl,
+  AD_SLOTS,
+  DEFAULT_AD_INFO,
+  type AdSlot,
+} from "@/lib/ad-targeting";
 import type { AdStats, AdWithStats } from "@/lib/ads";
 
 interface AdsManagerProps {
@@ -455,6 +460,22 @@ function AdForm({
           className={inputClass}
         />
       </Field>
+
+      <Field label="“Why this ad?” text" htmlFor={fieldId("infoText")}>
+        <textarea
+          id={fieldId("infoText")}
+          name="infoText"
+          defaultValue={ad?.infoText ?? ""}
+          rows={3}
+          placeholder={DEFAULT_AD_INFO}
+          className={inputClass}
+        />
+      </Field>
+      <p className="font-sans text-xs text-(--dim)">
+        What the ⓘ behind &ldquo;Sponsored&rdquo; says about this one. Leave it
+        blank and it says the line above — the disclosure that nobody paid for
+        any of this, which is the part that has to stay true.
+      </p>
 
       <Field label="Keywords" htmlFor={fieldId("keywords")}>
         <input

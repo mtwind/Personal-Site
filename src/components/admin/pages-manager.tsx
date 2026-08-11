@@ -9,53 +9,50 @@ import {
   SubmitButton,
   inputClass,
 } from "@/components/edit/form-fields";
-import {
-  deleteKnowledgeNote,
-  saveKnowledgeNote,
-} from "@/lib/actions/knowledge";
+import { deleteSitePage, saveSitePage } from "@/lib/actions/pages";
 import type { ActionResult } from "@/lib/actions/validation";
 import {
   SkillPickerField,
   toSkillSelections,
 } from "@/components/edit/skill-picker-field";
-import type { KnowledgeNote } from "@/lib/knowledge-data";
+import type { SitePage } from "@/lib/pages-data";
 import type { ReferenceOption } from "@/lib/reference-options";
 import { markdownToPlainText } from "@/lib/match-markdown";
-import { NoteEditor } from "./note-editor";
+import { ProseEditor } from "@/components/edit/prose-editor";
 import {
   VISIBILITIES,
   VISIBILITY_HELP,
   VISIBILITY_LABEL,
-  type NoteVisibility,
-} from "@/lib/knowledge-visibility";
+  type PageVisibility,
+} from "@/lib/page-visibility";
 import {
   DOCUMENT_ACCEPT,
   MAX_DOCUMENT_LABEL,
   isDocumentTooLarge,
 } from "@/lib/upload-limits";
 
-interface KnowledgeManagerProps {
-  notes: KnowledgeNote[];
+interface PagesManagerProps {
+  pages: SitePage[];
   /** False when no Anthropic key is set: uploads can't be transcribed. */
   extractionEnabled: boolean;
-  /** Everything a note's prose can link to, for the editor's picker. */
+  /** Everything a page's prose can link to, for the editor's picker. */
   referenceOptions: ReferenceOption[];
 }
 
 /** A draft row the editor is composing but hasn't saved. */
-type Draft = { kind: "note" | "document" } | null;
+type Draft = { kind: "page" | "document" } | null;
 
-export function KnowledgeManager({
-  notes,
+export function PagesManager({
+  pages,
   extractionEnabled,
   referenceOptions,
-}: KnowledgeManagerProps) {
+}: PagesManagerProps) {
   const [draft, setDraft] = useState<Draft>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const grounding = notes.filter((note) => note.visibility !== "draft");
+  const grounding = pages.filter((page) => page.visibility !== "draft");
   const characters = grounding.reduce(
-    (total, note) => total + note.title.length + note.body.length,
+    (total, page) => total + page.title.length + page.body.length,
     0,
   );
 
@@ -68,23 +65,23 @@ export function KnowledgeManager({
         <p className="mt-2 text-[14px] leading-6 text-(--text)">
           Everything here that isn&apos;t a draft is read by the AI overview on
           the team-matching page and can be <em>quoted back to a visitor</em>{" "}
-          word for word. &ldquo;Private&rdquo; means it has no page of its own,
-          not that it stays unsaid — park anything you wouldn&apos;t tell a
+          word for word. &ldquo;Private&rdquo; means the page has no URL of its
+          own, not that it stays unsaid — park anything you wouldn&apos;t tell a
           recruiter as a draft.
         </p>
         <p className="mt-2 font-sans text-xs text-(--dim)">
           {grounding.length === 0
             ? "Nothing is grounding answers yet."
-            : `${grounding.length} of ${notes.length} ${
-                notes.length === 1 ? "entry" : "entries"
+            : `${grounding.length} of ${pages.length} ${
+                pages.length === 1 ? "page" : "pages"
               } ground answers — about ${characters.toLocaleString()} characters added to every question asked.`}
         </p>
       </section>
 
       {draft ? (
-        <NoteForm
+        <PageForm
           kind={draft.kind}
-          note={null}
+          page={null}
           extractionEnabled={extractionEnabled}
           referenceOptions={referenceOptions}
           onClose={() => setDraft(null)}
@@ -93,10 +90,10 @@ export function KnowledgeManager({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setDraft({ kind: "note" })}
+            onClick={() => setDraft({ kind: "page" })}
             className="rounded-md bg-(--accent) px-4 py-1.5 font-sans text-sm font-semibold text-(--bg) transition-opacity duration-200 hover:opacity-85"
           >
-            + Write a note
+            + Write a page
           </button>
           <button
             type="button"
@@ -108,7 +105,7 @@ export function KnowledgeManager({
         </div>
       )}
 
-      {notes.length === 0 ? (
+      {pages.length === 0 ? (
         <p className="font-sans text-sm text-(--dim) italic">
           Nothing here yet. Start with what the résumé leaves out — where you
           are in the process, what you told an interviewer, what you&apos;re
@@ -116,20 +113,20 @@ export function KnowledgeManager({
         </p>
       ) : (
         <ul className="space-y-3">
-          {notes.map((note) =>
-            editingId === note.id ? (
-              <li key={note.id}>
-                <NoteForm
-                  kind={note.kind === "document" ? "document" : "note"}
-                  note={note}
+          {pages.map((page) =>
+            editingId === page.id ? (
+              <li key={page.id}>
+                <PageForm
+                  kind={page.kind === "document" ? "document" : "page"}
+                  page={page}
                   extractionEnabled={extractionEnabled}
                   referenceOptions={referenceOptions}
                   onClose={() => setEditingId(null)}
                 />
               </li>
             ) : (
-              <li key={note.id}>
-                <NoteCard note={note} onEdit={() => setEditingId(note.id)} />
+              <li key={page.id}>
+                <PageCard page={page} onEdit={() => setEditingId(page.id)} />
               </li>
             ),
           )}
@@ -139,25 +136,25 @@ export function KnowledgeManager({
   );
 }
 
-const VISIBILITY_STYLE: Record<NoteVisibility, string> = {
+const VISIBILITY_STYLE: Record<PageVisibility, string> = {
   draft: "border-(--line) text-(--dim)",
   private: "border-(--accent) text-(--accent)",
   published: "border-(--accent) bg-(--hover-bg) text-(--accent)",
 };
 
-/** How much of a note's prose the collapsed card shows. */
+/** How much of a page's prose the collapsed card shows. */
 const PREVIEW_CHARS = 220;
 
-function NoteCard({ note, onEdit }: { note: KnowledgeNote; onEdit: () => void }) {
-  const visibility = note.visibility as NoteVisibility;
-  const preview = markdownToPlainText(note.body);
+function PageCard({ page, onEdit }: { page: SitePage; onEdit: () => void }) {
+  const visibility = page.visibility as PageVisibility;
+  const preview = markdownToPlainText(page.body);
 
   return (
     <article className="rounded-md border border-(--line) bg-(--bg-elev) px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[16px] font-medium text-(--title)">
-            {note.title}
+            {page.title}
           </h3>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 font-sans text-[11px]">
             <span
@@ -165,12 +162,12 @@ function NoteCard({ note, onEdit }: { note: KnowledgeNote; onEdit: () => void })
             >
               {VISIBILITY_LABEL[visibility] ?? visibility}
             </span>
-            {note.kind === "document" ? (
+            {page.kind === "document" ? (
               <span className="rounded-full border border-(--line) px-2 py-0.5 text-(--dim)">
-                {note.fileName ?? "Document"}
+                {page.fileName ?? "Document"}
               </span>
             ) : null}
-            {note.skills.map((skill) => (
+            {page.skills.map((skill) => (
               <span
                 key={skill.id}
                 className="rounded-full border border-(--accent) px-2 py-0.5 text-(--accent)"
@@ -178,7 +175,7 @@ function NoteCard({ note, onEdit }: { note: KnowledgeNote; onEdit: () => void })
                 {skill.name}
               </span>
             ))}
-            {note.tags.map((tag) => (
+            {page.tags.map((tag) => (
               <span key={tag} className="text-(--dim)">
                 #{tag}
               </span>
@@ -193,7 +190,7 @@ function NoteCard({ note, onEdit }: { note: KnowledgeNote; onEdit: () => void })
           >
             Edit
           </button>
-          <DeleteButton id={note.id} title={note.title} />
+          <DeleteButton id={page.id} title={page.title} />
         </div>
       </div>
 
@@ -214,7 +211,7 @@ function NoteCard({ note, onEdit }: { note: KnowledgeNote; onEdit: () => void })
 
 function DeleteButton({ id, title }: { id: string; title: string }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
-    deleteKnowledgeNote,
+    deleteSitePage,
     null,
   );
 
@@ -243,21 +240,21 @@ function DeleteButton({ id, title }: { id: string; title: string }) {
   );
 }
 
-function NoteForm({
+function PageForm({
   kind,
-  note,
+  page,
   extractionEnabled,
   referenceOptions,
   onClose,
 }: {
-  kind: "note" | "document";
-  note: KnowledgeNote | null;
+  kind: "page" | "document";
+  page: SitePage | null;
   extractionEnabled: boolean;
   referenceOptions: ReferenceOption[];
   onClose: () => void;
 }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
-    saveKnowledgeNote,
+    saveSitePage,
     null,
   );
   const [fileName, setFileName] = useState<string | null>(null);
@@ -266,21 +263,21 @@ function NoteForm({
     if (state?.ok) onClose();
   }, [state, onClose]);
 
-  const fieldId = (name: string) => `knowledge-${note?.id ?? "new"}-${name}`;
+  const fieldId = (name: string) => `page-${page?.id ?? "new"}-${name}`;
 
   return (
     <form
       action={formAction}
       className="space-y-5 rounded-md border border-(--accent) bg-(--bg-elev) px-5 py-5"
     >
-      <input type="hidden" name="id" value={note?.id ?? ""} />
+      <input type="hidden" name="id" value={page?.id ?? ""} />
       <input type="hidden" name="kind" value={kind} />
 
       <Field label="Title" htmlFor={fieldId("title")}>
         <input
           id={fieldId("title")}
           name="title"
-          defaultValue={note?.title ?? ""}
+          defaultValue={page?.title ?? ""}
           placeholder={
             kind === "document"
               ? "e.g. Reference letter — Jane Doe"
@@ -304,7 +301,7 @@ function NoteForm({
                 type="radio"
                 name="visibility"
                 value={value}
-                defaultChecked={(note?.visibility ?? "private") === value}
+                defaultChecked={(page?.visibility ?? "private") === value}
                 className="mt-1"
               />
               <span>
@@ -323,9 +320,9 @@ function NoteForm({
       {kind === "document" ? (
         <Field label="File" htmlFor={fieldId("document")}>
           <div className="space-y-2">
-            {note?.fileName ? (
+            {page?.fileName ? (
               <p className="font-sans text-xs text-(--dim)">
-                Currently: {note.fileName}
+                Currently: {page.fileName}
               </p>
             ) : null}
             <input
@@ -365,13 +362,13 @@ function NoteForm({
               <input
                 type="checkbox"
                 name="replaceText"
-                defaultChecked={note === null}
+                defaultChecked={page === null}
                 className="mt-0.5 h-3.5 w-3.5"
               />
               Replace the text below with what&apos;s read from the file
-              {note ? " (uncheck to keep your edits)" : ""}
+              {page ? " (uncheck to keep your edits)" : ""}
             </label>
-            {note?.fileName ? (
+            {page?.fileName ? (
               <label className="flex items-center gap-2 font-sans text-xs text-(--dim)">
                 <input
                   type="checkbox"
@@ -385,11 +382,12 @@ function NoteForm({
         </Field>
       ) : null}
 
-      <Field label="Text the AI reads" htmlFor={fieldId("body")}>
-        <NoteEditor
-          key={note?.updatedAt?.toISOString() ?? "new"}
+      <Field label="The page itself" htmlFor={fieldId("body")}>
+        <ProseEditor
+          key={page?.updatedAt?.toISOString() ?? "new"}
+          id={fieldId("body")}
           name="body"
-          initial={note?.body ?? ""}
+          initial={page?.body ?? ""}
           rows={kind === "document" ? 14 : 10}
           placeholder={
             kind === "document"
@@ -400,12 +398,31 @@ function NoteForm({
         />
       </Field>
 
-      <Field label="Skills this note is about" htmlFor={fieldId("skills")}>
+      <label className="flex items-start gap-2.5 rounded-md border border-(--line) px-3 py-2 font-sans text-sm text-(--text) transition-colors has-checked:border-(--accent) has-checked:bg-(--hover-bg)">
+        <input
+          type="checkbox"
+          name="showSkillRanking"
+          defaultChecked={page?.showSkillRanking ?? false}
+          className="mt-1 h-3.5 w-3.5"
+        />
+        <span>
+          <span className="block font-medium text-(--title)">
+            Also list my strongest skills
+          </span>
+          <span className="block font-sans text-xs text-(--dim)">
+            Adds the ranking derived from what your work is tagged with, under
+            this page&apos;s text. Counted from the profile, so it can&apos;t go
+            stale.
+          </span>
+        </span>
+      </label>
+
+      <Field label="Skills this page is about" htmlFor={fieldId("skills")}>
         <div className="space-y-1.5">
-          <SkillPickerField initial={toSkillSelections(note?.skills ?? [])} />
+          <SkillPickerField initial={toSkillSelections(page?.skills ?? [])} />
           <p className="font-sans text-xs text-(--dim)">
-            Tagging a skill puts this note on that skill&apos;s page (when
-            published) and tells the AI the note is evidence for it.
+            Tagging a skill lists this page on that skill&apos;s page (when
+            published) and tells the AI the page is evidence for it.
           </p>
         </div>
       </Field>
@@ -414,7 +431,7 @@ function NoteForm({
         <input
           id={fieldId("tags")}
           name="tags"
-          defaultValue={note?.tags.join(", ") ?? ""}
+          defaultValue={page?.tags.join(", ") ?? ""}
           placeholder="interviews, logistics — for your own filing; never shown"
           className={inputClass}
         />

@@ -1,10 +1,12 @@
 /**
  * Create the team_match_page singleton with an unguessable slug, and
- * make sure it has the four standard pages.
+ * make sure the four standard pages exist behind it.
  *
- * Idempotent: run it against an existing page and it adds only the
- * standard sections that aren't there yet, matching on title and leaving
- * every authored section — and their order — alone.
+ * Idempotent: run it against an existing site and it adds only the
+ * standard pages that aren't there yet, matching on title. Pages that
+ * are already featured on the home page keep their place; newly created
+ * ones are appended to the listing, so nothing an editor arranged by
+ * hand is rearranged here.
  *
  * Run: npx tsx scripts/seed-team-match.ts
  */
@@ -15,8 +17,8 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { teamMatchPage } from "../src/db/schema";
-import { DEFAULT_SECTIONS } from "../src/lib/match-defaults";
+import { pages, teamMatchPage } from "../src/db/schema";
+import { DEFAULT_PAGES } from "../src/lib/match-defaults";
 
 config({ path: ".env.local" });
 
@@ -35,48 +37,79 @@ async function main(): Promise<void> {
     .select({
       id: teamMatchPage.id,
       slug: teamMatchPage.slug,
-      sections: teamMatchPage.sections,
+      featured: teamMatchPage.featured,
     })
     .from(teamMatchPage)
     .limit(1);
 
-  const row = existing[0];
+  let row = existing[0];
 
-  if (row) {
-    const present = new Set(row.sections.map((s) => normalize(s.title)));
-    const missing = DEFAULT_SECTIONS.filter(
-      (section) => !present.has(normalize(section.title)),
-    );
+  if (!row) {
+    const slug = randomBytes(16).toString("hex");
+    const created = await db
+      .insert(teamMatchPage)
+      .values({
+        slug,
+        headline: "Team Matching Profile",
+        intro:
+          "A closer look at what I'm hoping to find in a team — beyond what fits on a résumé.",
+      })
+      .returning({
+        id: teamMatchPage.id,
+        slug: teamMatchPage.slug,
+        featured: teamMatchPage.featured,
+      });
+    row = created[0];
+    console.log(`Created team match page: /match/${slug}`);
+  }
 
-    if (missing.length === 0) {
-      console.log(`Team match page already set up: /match/${row.slug}`);
-    } else {
-      await db
-        .update(teamMatchPage)
-        .set({
-          sections: [...row.sections, ...missing],
-          updatedAt: new Date(),
-        })
-        .where(eq(teamMatchPage.id, row.id));
-      console.log(
-        `Added ${missing.length} page(s) to /match/${row.slug}: ` +
-          missing.map((section) => section.title).join(", "),
-      );
-    }
+  const written = await db.select({ title: pages.title }).from(pages);
+  const present = new Set(written.map((page) => normalize(page.title)));
+  const missing = DEFAULT_PAGES.filter(
+    (page) => !present.has(normalize(page.title)),
+  );
 
+  if (missing.length === 0) {
+    console.log(`Team match page already set up: /match/${row.slug}`);
     await client.end();
     return;
   }
 
-  const slug = randomBytes(16).toString("hex");
-  await db.insert(teamMatchPage).values({
-    slug,
-    headline: "Team Matching Profile",
-    intro:
-      "A closer look at what I'm hoping to find in a team — beyond what fits on a résumé.",
-    sections: DEFAULT_SECTIONS,
-  });
-  console.log(`Created team match page: /match/${slug}`);
+  const created = await db
+    .insert(pages)
+    .values(
+      missing.map((page, index) => ({
+        kind: "page",
+        title: page.title,
+        body: page.body,
+        visibility: "published",
+        showSkillRanking: page.showSkillRanking ?? false,
+        sortOrder: written.length + index,
+      })),
+    )
+    .returning({ id: pages.id });
+
+  await db
+    .update(teamMatchPage)
+    .set({
+      featured: [
+        ...row.featured,
+        ...created.map((page) => ({
+          kind: "page",
+          id: page.id,
+          title: null,
+          snippet: null,
+        })),
+      ],
+      updatedAt: new Date(),
+    })
+    .where(eq(teamMatchPage.id, row.id));
+
+  console.log(
+    `Added ${missing.length} page(s) to /match/${row.slug}: ` +
+      missing.map((page) => page.title).join(", "),
+  );
+
   await client.end();
 }
 

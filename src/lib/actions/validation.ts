@@ -202,18 +202,35 @@ export function parseCourseForm(formData: FormData) {
   });
 }
 
+/**
+ * A row on the home page's listing.
+ *
+ * The overrides are stored as null rather than "" so a blank field means
+ * "use the entry's own words" — which is what an editor who cleared the
+ * box meant, and what keeps the listing following a renamed project.
+ */
+export const featuredEntrySchema = z.object({
+  kind: z.enum(["project", "experience", "course", "skill", "page"]),
+  id: z.uuid(),
+  title: z
+    .string()
+    .trim()
+    .max(120)
+    .nullish()
+    .transform((value) => value || null),
+  snippet: z
+    .string()
+    .trim()
+    .max(300)
+    .nullish()
+    .transform((value) => value || null),
+});
+
 export const teamMatchSchema = z.object({
   headline: z.string().max(200),
   intro: z.string().max(2000),
   meetingUrl: z.url("Meeting link must be a valid URL").nullable(),
-  sections: z
-    .array(
-      z.object({
-        title: z.string().trim().min(1, "Section title is required").max(120),
-        body: z.string().max(4000),
-      }),
-    )
-    .max(12),
+  featured: z.array(featuredEntrySchema).max(24),
 });
 
 export type TeamMatchInput = z.infer<typeof teamMatchSchema>;
@@ -223,7 +240,7 @@ export function parseTeamMatchForm(formData: FormData) {
     headline: requiredString(formData.get("headline")),
     intro: requiredString(formData.get("intro")),
     meetingUrl: emptyToNull(formData.get("meetingUrl")),
-    sections: parseJsonField(formData.get("sections")),
+    featured: parseJsonField(formData.get("featured")),
   });
 }
 
@@ -250,17 +267,18 @@ export function parseFeedbackForm(formData: FormData) {
   });
 }
 
-export const knowledgeNoteSchema = z.object({
+export const sitePageSchema = z.object({
   id: z.uuid().nullable(),
-  kind: z.enum(["note", "document"]),
-  title: z.string().trim().min(1, "Give the note a title").max(200),
+  kind: z.enum(["page", "document"]),
+  title: z.string().trim().min(1, "Give the page a title").max(200),
   body: z.string().max(200000),
   tags: z.array(z.string().trim().min(1).max(40)).max(12),
   visibility: z.enum(["draft", "private", "published"]),
+  showSkillRanking: z.boolean(),
   skills: z.array(skillSelectionSchema).max(30),
 });
 
-export type KnowledgeNoteInput = z.infer<typeof knowledgeNoteSchema>;
+export type SitePageInput = z.infer<typeof sitePageSchema>;
 
 /** "visa, relocation , " → ["visa", "relocation"] */
 function tagList(value: FormDataEntryValue | null): string[] {
@@ -274,14 +292,15 @@ function tagList(value: FormDataEntryValue | null): string[] {
   return [...seen];
 }
 
-export function parseKnowledgeNoteForm(formData: FormData) {
-  return knowledgeNoteSchema.safeParse({
+export function parseSitePageForm(formData: FormData) {
+  return sitePageSchema.safeParse({
     id: emptyToNull(formData.get("id")),
     kind: requiredString(formData.get("kind")),
     title: requiredString(formData.get("title")),
     body: typeof formData.get("body") === "string" ? formData.get("body") : "",
     tags: tagList(formData.get("tags")),
     visibility: requiredString(formData.get("visibility")),
+    showSkillRanking: formData.get("showSkillRanking") === "on",
     skills: parseJsonField(formData.get("skills")),
   });
 }
@@ -305,6 +324,7 @@ export const adSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a hex like #FC4C02")
     .nullable(),
   iconUrl: z.url("Custom logo must be a valid URL").max(500).nullable(),
+  infoText: z.string().trim().max(500),
   keywords: z.array(z.string().trim().min(1).max(40)).max(40),
   slots: z
     .array(z.enum(["sponsored", "rail", "banner"]))
@@ -328,6 +348,7 @@ export function parseAdForm(formData: FormData) {
     iconSlug: emptyToNull(formData.get("iconSlug"))?.toLowerCase() ?? null,
     color: emptyToNull(formData.get("color")),
     iconUrl: emptyToNull(formData.get("iconUrl")),
+    infoText: requiredString(formData.get("infoText")),
     keywords: tagList(formData.get("keywords")),
     // Checkbox groups post nothing when every box is cleared, which the
     // schema then rejects — a placement-less ad can't run anywhere.

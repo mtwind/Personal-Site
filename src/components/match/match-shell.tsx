@@ -25,12 +25,7 @@ import {
   pruneTabs,
   subscribeTabs,
 } from "@/lib/match-tab-store";
-import {
-  HOME_KEY,
-  resolveTab,
-  type MatchSection,
-  type MatchTab,
-} from "@/lib/match-tabs";
+import { HOME_KEY, resolveTab, type MatchTab } from "@/lib/match-tabs";
 import { SHELL_WIDTH } from "./match-layout";
 import { TabStrip } from "./tab-strip";
 
@@ -48,7 +43,6 @@ interface MatchContextValue {
   base: string;
   index: MatchReferenceIndex;
   resolver: ReferenceResolver;
-  sections: MatchSection[];
   ownerName: string;
   /** Every ad eligible to run; each slot picks its own from this. */
   ads: Ad[];
@@ -74,7 +68,6 @@ export function useMatch(): MatchContextValue {
 interface MatchShellProps {
   base: string;
   index: MatchReferenceIndex;
-  sections: MatchSection[];
   ownerName: string;
   /** Title of the home tab — the page's own headline. */
   homeTitle: string;
@@ -129,7 +122,6 @@ function FloatingOrbs() {
 export function MatchShell({
   base,
   index,
-  sections,
   ownerName,
   homeTitle,
   isEditor,
@@ -173,14 +165,13 @@ export function MatchShell({
       base,
       index,
       resolver,
-      sections,
       ownerName,
       ads,
       // The owner browsing their own page would otherwise account for
       // most of what the ad statistics describe.
       reportAds: !isEditor,
     }),
-    [base, index, resolver, sections, ownerName, ads, isEditor],
+    [base, index, resolver, ownerName, ads, isEditor],
   );
 
   // Keys whose entry has since been renamed or deleted resolve to null
@@ -188,9 +179,9 @@ export function MatchShell({
   const tabs = useMemo(
     () =>
       keys
-        .map((key) => resolveTab(base, key, resolver, sections, homeTitle))
+        .map((key) => resolveTab(base, key, resolver, homeTitle))
         .filter((tab): tab is MatchTab => tab !== null),
-    [keys, base, resolver, sections, homeTitle],
+    [keys, base, resolver, homeTitle],
   );
 
   // Storage outlives the entries it points at: a renamed project leaves
@@ -201,9 +192,9 @@ export function MatchShell({
       base,
       (key) =>
         key === active ||
-        resolveTab(base, key, resolver, sections, homeTitle) !== null,
+        resolveTab(base, key, resolver, homeTitle) !== null,
     );
-  }, [base, active, resolver, sections, homeTitle]);
+  }, [base, active, resolver, homeTitle]);
 
   /**
    * Close a tab. Closing the one you're on returns to the page's home
@@ -258,10 +249,10 @@ export function MatchShell({
               {isEditor ? (
                 <div className="flex items-center gap-2">
                   <Link
-                    href="/admin/knowledge"
+                    href="/admin/pages"
                     className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
                   >
-                    Background
+                    Pages
                   </Link>
                   <Link
                     href="/admin/ads"

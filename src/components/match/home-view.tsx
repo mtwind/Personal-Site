@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { sectionPath } from "@/lib/match-tabs";
+import {
+  resolveFeatured,
+  type FeaturedEntry,
+} from "@/lib/match-featured";
 import { ExitDialog } from "./exit-dialog";
 import { MatchRichText } from "./match-rich-text";
 import { MatchSearchBar, MatchSearchResults } from "./match-search";
-import { CARD, FOUR_COLOR_GRADIENT, GOOGLE_DOTS, useMatch } from "./match-shell";
+import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
+import { ResultRow } from "./result-row";
 
 interface HomeViewProps {
   /** The committed search, from `?q=`. Empty means show the profile. */
@@ -15,40 +18,39 @@ interface HomeViewProps {
   aiEnabled: boolean;
   headline: string;
   intro: string;
+  /** The entries picked out for this page, in order. */
+  featured: FeaturedEntry[];
   resumeUrl: string | null;
   meetingHref: string | null;
 }
 
-/** How much of a section's prose shows on its card on the home page. */
-const PREVIEW_CHARS = 150;
-
 /**
  * The page a visitor lands on: the search field, and — when nothing is
- * being searched — the introduction and the way in to every other page.
+ * being searched — the introduction and a listing of the entries worth
+ * starting with.
+ *
+ * The listing is drawn as search results rather than as cards, because
+ * that is what it is: the same rows a query produces, chosen by hand
+ * instead of by a score. A visitor who has used Google already knows how
+ * to read it, and the page keeps its one visual grammar whether or not
+ * anything has been searched for.
  */
 export function HomeView({
   query,
   aiEnabled,
   headline,
   intro,
+  featured,
   resumeUrl,
   meetingHref,
 }: HomeViewProps) {
-  const { base, sections, resolver } = useMatch();
+  const { resolver } = useMatch();
   const [exiting, setExiting] = useState(false);
 
-  /** A section's opening prose, with reference tokens read as words. */
-  const preview = (body: string): string => {
-    const text = resolver
-      .parse(body)
-      .map((segment) => (segment.type === "text" ? segment.text : segment.label))
-      .join("")
-      .replace(/\s+/g, " ")
-      .trim();
-    return text.length > PREVIEW_CHARS
-      ? `${text.slice(0, PREVIEW_CHARS).trimEnd()}…`
-      : text;
-  };
+  const results = useMemo(
+    () => resolveFeatured(resolver, featured),
+    [resolver, featured],
+  );
 
   return (
     <>
@@ -74,42 +76,28 @@ export function HomeView({
             </p>
           ) : null}
 
-          {sections.length > 0 ? (
-            <nav aria-label="Pages" className="mt-8">
-              <h2 className="text-[11px] font-medium tracking-[0.14em] text-[#5f6368] uppercase">
-                Pages
+          {results.length > 0 ? (
+            <section aria-label="Start here" className="mt-8">
+              <h2 className="border-b border-[#dadce0] pb-3 text-[11px] font-medium tracking-[0.14em] text-[#5f6368] uppercase">
+                Start here
               </h2>
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-                {sections.map((section, index) => (
-                  <li key={section.slug}>
-                    <Link
-                      href={base + sectionPath(section.slug)}
-                      className={`${CARD} block h-full`}
-                    >
-                      <span className="flex items-center gap-2.5 text-[17px] font-medium text-[#202124]">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{
-                            background: GOOGLE_DOTS[index % GOOGLE_DOTS.length],
-                          }}
-                          aria-hidden
-                        />
-                        {section.title || "Untitled"}
-                      </span>
-                      <span className="mt-2 block text-[14px] leading-6 text-[#5f6368]">
-                        {preview(section.body)}
-                      </span>
-                      <span className="mt-3 inline-block text-[13px] font-medium text-[#1a73e8]">
-                        Open →
-                      </span>
-                    </Link>
+              <ul className="mt-4 space-y-3">
+                {results.map((result) => (
+                  <li key={`${result.target.kind}:${result.target.id}`}>
+                    <ResultRow
+                      target={result.target}
+                      title={result.title}
+                      note={result.note}
+                      snippet={result.snippet}
+                      jumps={result.jumps}
+                    />
                   </li>
                 ))}
               </ul>
-            </nav>
+            </section>
           ) : null}
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-8 space-y-4">
             {resumeUrl ? (
               <section
                 className={`${CARD} flex flex-wrap items-center justify-between gap-3`}

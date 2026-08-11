@@ -6,43 +6,43 @@ import { getMatchContext } from "@/lib/match-index";
 import { signedDocumentUrl } from "@/lib/storage";
 
 /**
- * A published background note.
+ * One of the site's own written pages.
  *
- * Notes have their own route rather than going through the shared
- * entry page because a document link can't be built on the client: the
- * bucket is private, so the URL has to be signed here, per request, and
- * it expires.
+ * Pages have their own route rather than going through the shared entry
+ * page because a document link can't be built on the client: the bucket
+ * is private, so the URL has to be signed here, per request, and it
+ * expires.
  */
-async function findNote(pageSlug: string, entrySlug: string) {
+async function findPage(pageSlug: string, entrySlug: string) {
   const context = await getMatchContext();
   if (!context || context.page.slug !== pageSlug) return null;
 
-  const target = context.resolver.fromSlug("note", entrySlug);
-  return target ? context.resolver.note(target.id) : null;
+  const target = context.resolver.fromSlug("page", entrySlug);
+  return target ? context.resolver.page(target.id) : null;
 }
 
 export async function generateMetadata(
-  props: PageProps<"/match/[slug]/note/[entry]">,
+  props: PageProps<"/match/[slug]/page/[entry]">,
 ): Promise<Metadata> {
   const { slug, entry } = await props.params;
-  const note = await findNote(slug, entry);
-  return { title: note?.title ?? "Not found" };
+  const found = await findPage(slug, entry);
+  return { title: found?.title ?? "Not found" };
 }
 
-export default async function MatchNotePage(
-  props: PageProps<"/match/[slug]/note/[entry]">,
+export default async function MatchWrittenPage(
+  props: PageProps<"/match/[slug]/page/[entry]">,
 ) {
   const { slug, entry } = await props.params;
-  const note = await findNote(slug, entry);
-  if (!note) notFound();
+  const found = await findPage(slug, entry);
+  if (!found) notFound();
 
-  // Published notes are the only ones with a page, so this only ever
+  // Published pages are the only ones with a route, so this only ever
   // signs a document its owner chose to publish.
   const context = await getMatchContext();
-  const stored = context?.notes.find((row) => row.id === note.id) ?? null;
+  const stored = context?.sitePages.find((row) => row.id === found.id) ?? null;
   const documentUrl = await signedDocumentUrl(stored?.filePath ?? null);
 
   return (
-    <EntryView target={{ kind: "note", id: note.id }} documentUrl={documentUrl} />
+    <EntryView target={{ kind: "page", id: found.id }} documentUrl={documentUrl} />
   );
 }

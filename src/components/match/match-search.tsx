@@ -4,12 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { KIND_LABEL } from "@/lib/match-references";
-import { matchRanges, searchReferences, type SearchHit } from "@/lib/match-search";
-import { targetHref } from "@/lib/match-tabs";
+import { searchReferences } from "@/lib/match-search";
 import { SponsoredResults } from "./match-ads";
 import { MatchAiOverview } from "./match-ai-overview";
 import { GOOGLE_DOTS, useMatch } from "./match-shell";
+import { ResultRow } from "./result-row";
 
 /**
  * Google-style search field. The committed query lives in the URL, so a
@@ -183,64 +182,18 @@ export function MatchSearchResults({
         <ul className="mt-4 space-y-3">
           {hits.map((hit) => (
             <li key={`${hit.target.kind}:${hit.target.id}`}>
-              <SearchResultCard hit={hit} />
+              <ResultRow
+                target={hit.target}
+                title={hit.title}
+                note={hit.note}
+                snippet={hit.headline}
+                jumps={hit.jumps}
+                terms={hit.matched}
+              />
             </li>
           ))}
         </ul>
       )}
     </div>
   );
-}
-
-/** One result. Styled as a Google organic result, not as a card. */
-function SearchResultCard({ hit }: { hit: SearchHit }) {
-  const { base, resolver } = useMatch();
-  const href = targetHref(base, resolver, hit.target);
-  if (!href) return null;
-
-  return (
-    <Link
-      href={href}
-      className="group block w-full rounded-xl px-3.5 py-3 text-left transition-colors hover:bg-white"
-    >
-      <span className="block text-[11px] tracking-[0.14em] text-[#5f6368] uppercase">
-        {KIND_LABEL[hit.target.kind]}
-        {hit.note ? ` · ${hit.note}` : ""}
-      </span>
-      <span className="mt-0.5 block text-[18px] leading-snug text-[#1a0dab] group-hover:underline">
-        {hit.title}
-      </span>
-      {hit.headline ? (
-        <span className="mt-1 block text-[14px] leading-6 text-[#4d5156]">
-          <Highlighted text={hit.headline} terms={hit.matched} />
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-/**
- * Bold the query terms inside a snippet, the way search results do. Ranges
- * come from the search module so highlighting and ranking agree on what
- * counts as a match.
- */
-function Highlighted({ text, terms }: { text: string; terms: string[] }) {
-  const ranges = terms.length > 0 ? matchRanges(text, terms) : [];
-  if (ranges.length === 0) return <>{text}</>;
-
-  const pieces: React.ReactNode[] = [];
-  let cursor = 0;
-
-  ranges.forEach(([start, end], index) => {
-    if (start > cursor) pieces.push(text.slice(cursor, start));
-    pieces.push(
-      <mark key={index} className="bg-transparent font-bold text-[#4d5156]">
-        {text.slice(start, end)}
-      </mark>,
-    );
-    cursor = end;
-  });
-  if (cursor < text.length) pieces.push(text.slice(cursor));
-
-  return <>{pieces}</>;
 }

@@ -9,12 +9,29 @@
  * Pure and serializable-in/serializable-out, so it can be unit-checked
  * without a browser or a database.
  */
-import { markdownToPlainText } from "@/lib/match-markdown";
+import {
+  markdownLeadText,
+  markdownSectionText,
+  markdownToPlainText,
+} from "@/lib/match-markdown";
 import type {
   MatchReferenceIndex,
   ReferenceKind,
+  ReferencePage,
   ReferenceTarget,
 } from "@/lib/match-references";
+
+/**
+ * A heading worth offering under a result, the way Google offers the
+ * sections of a long page beneath its link.
+ */
+export interface SearchJumpLink {
+  /** Anchor id on the entry's page. */
+  anchor: string;
+  label: string;
+  /** The prose under that heading, trimmed to a snippet. */
+  snippet: string;
+}
 
 /** A ranked search result, ready to render and to open in the pane. */
 export interface SearchHit {
@@ -27,6 +44,8 @@ export interface SearchHit {
   score: number;
   /** Query terms this entry actually matched, for result highlighting. */
   matched: string[];
+  /** Sections of the entry the reader can land on directly. */
+  jumps: SearchJumpLink[];
 }
 
 /**
@@ -38,6 +57,8 @@ const WEIGHT = {
   company: 5,
   skillName: 8,
   headline: 3,
+  /** A page's own headings: what its author called that part of it. */
+  heading: 4,
   course: 2,
   skill: 2,
   bullet: 1,
@@ -142,20 +163,20 @@ const KIND_INTENT: Record<string, ReferenceKind> = {
   worked: "experience",
   working: "experience",
 
-  background: "note",
-  culture: "note",
-  interview: "note",
-  interviews: "note",
-  interviewed: "note",
-  matching: "note",
-  prefer: "note",
-  preference: "note",
-  preferences: "note",
-  relocate: "note",
-  relocation: "note",
-  visa: "note",
-  want: "note",
-  wants: "note",
+  background: "page",
+  culture: "page",
+  interview: "page",
+  interviews: "page",
+  interviewed: "page",
+  matching: "page",
+  prefer: "page",
+  preference: "page",
+  preferences: "page",
+  relocate: "page",
+  relocation: "page",
+  visa: "page",
+  want: "page",
+  wants: "page",
 
   class: "course",
   classes: "course",
@@ -340,12 +361,56 @@ function scoreFields(fields: Field[], terms: string[]) {
  * a role carries more weight than a project that scored the same.
  */
 const KIND_ORDER: Record<ReferenceKind, number> = {
-  note: 0,
+  page: 0,
   experience: 1,
   project: 2,
   course: 3,
   skill: 4,
 };
+
+/** How many sections a single result offers to jump to. */
+const JUMP_LIMIT = 4;
+
+/** How much of a section's prose the jump link shows. */
+const JUMP_SNIPPET_CHARS = 110;
+
+/**
+ * The sections of a page worth listing under its result.
+ *
+ * Headings the query actually hit come first and alone: someone who
+ * searched "visa" wants the visa section, not a table of contents. With
+ * no heading matched — which is every featured result on the home page,
+ * where there is no query at all — the page's opening sections stand in.
+ * That is the same bargain Google's sitelinks make: a way into a long
+ * page rather than a claim about the query.
+ */
+export function pageJumpLinks(
+  page: ReferencePage,
+  terms: string[],
+): SearchJumpLink[] {
+  if (page.headings.length === 0) return [];
+
+  const sections = page.headings.map((heading, index) => ({
+    heading,
+    index,
+    hit: terms.some((term) => hitStrength(heading.text, term) > 0),
+  }));
+
+  const matched = sections.filter((section) => section.hit);
+  const chosen = (matched.length > 0 ? matched : sections).slice(0, JUMP_LIMIT);
+
+  return chosen.map(({ heading, index }) => {
+    const prose = markdownSectionText(page.body, index);
+    return {
+      anchor: heading.id,
+      label: heading.text,
+      snippet:
+        prose.length > JUMP_SNIPPET_CHARS
+          ? `${prose.slice(0, JUMP_SNIPPET_CHARS).trimEnd()}…`
+          : prose,
+    };
+  });
+}
 
 /**
  * Rank everything in the index against a query. Entries matching no term
@@ -397,6 +462,7 @@ export function searchReferences(
         note: project.courseLabel ?? project.dateRange,
         score: ranked,
         matched,
+        jumps: [],
       });
     }
   }
@@ -424,6 +490,7 @@ export function searchReferences(
           .join(" · "),
         score: ranked,
         matched,
+        jumps: [],
       });
     }
   }
@@ -455,33 +522,41 @@ export function searchReferences(
           .join(" · ") || null,
         score: ranked,
         matched,
+        jumps: [],
       });
     }
   }
 
-  for (const [ordinal, note] of index.notes.entries()) {
+  for (const [ordinal, page] of index.pages.entries()) {
     // Markdown marks are punctuation to a keyword search: strip them so
     // "**Python**" matches "python" and a heading's `##` scores nothing.
-    const prose = markdownToPlainText(note.body);
+    const prose = markdownToPlainText(page.body);
     const fields: Field[] = [
-      { text: note.title, weight: WEIGHT.name },
+      { text: page.title, weight: WEIGHT.name },
+      ...page.headings.map((heading) => ({
+        text: heading.text,
+        weight: WEIGHT.heading,
+      })),
       { text: prose, weight: WEIGHT.bullet },
-      ...note.skillIds.map((id) => ({
+      ...page.skillIds.map((id) => ({
         text: skillNames.get(id) ?? "",
         weight: WEIGHT.skill,
       })),
     ];
     const { score, matched } = scoreFields(fields, terms);
-    const ranked = rank("note", score, ordinal);
+    const ranked = rank("page", score, ordinal);
     if (ranked > 0) {
       hits.push({
-        target: { kind: "note", id: note.id },
-        title: note.title,
-        // The opening prose stands in for a headline notes don't have.
-        headline: prose.slice(0, 180),
-        note: note.hasDocument ? "Document" : null,
+        target: { kind: "page", id: page.id },
+        title: page.title,
+        // The page's own lead stands in for a headline it doesn't have;
+        // its headings are listed under the result rather than spliced
+        // into the description.
+        headline: markdownLeadText(page.body).slice(0, 180),
+        note: page.hasDocument ? "Document" : null,
         score: ranked,
         matched,
+        jumps: pageJumpLinks(page, matched),
       });
     }
   }
@@ -496,7 +571,7 @@ export function searchReferences(
       const usedBy =
         index.projects.filter((p) => p.skillIds.includes(skill.id)).length +
         index.experiences.filter((e) => e.skillIds.includes(skill.id)).length +
-        index.notes.filter((n) => n.skillIds.includes(skill.id)).length;
+        index.pages.filter((p) => p.skillIds.includes(skill.id)).length;
       hits.push({
         target: { kind: "skill", id: skill.id },
         title: skill.name,
@@ -507,6 +582,7 @@ export function searchReferences(
             : null,
         score: ranked,
         matched,
+        jumps: [],
       });
     }
   }

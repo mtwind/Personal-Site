@@ -8,7 +8,7 @@ import {
   type ReferenceCourse,
   type ReferenceExperience,
   type ReferenceMedia,
-  type ReferenceNote,
+  type ReferencePage,
   type ReferenceProject,
   type ReferenceSkill,
   type ReferenceTarget,
@@ -16,6 +16,7 @@ import {
 import { targetHref } from "@/lib/match-tabs";
 import { AdBanner } from "./match-ads";
 import { MatchProse } from "./match-prose";
+import { RankedSkills } from "./ranked-skills";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 
 /**
@@ -28,7 +29,7 @@ import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
  */
 export function EntryView({
   target,
-  /** Short-lived link to a note's attached document, signed server-side. */
+  /** Short-lived link to a page's attached document, signed server-side. */
   documentUrl = null,
 }: {
   target: ReferenceTarget;
@@ -39,7 +40,7 @@ export function EntryView({
   const project = target.kind === "project" ? resolver.project(target.id) : null;
   const skill = target.kind === "skill" ? resolver.skill(target.id) : null;
   const course = target.kind === "course" ? resolver.course(target.id) : null;
-  const note = target.kind === "note" ? resolver.note(target.id) : null;
+  const written = target.kind === "page" ? resolver.page(target.id) : null;
   const experience =
     target.kind === "experience" ? resolver.experience(target.id) : null;
 
@@ -47,7 +48,7 @@ export function EntryView({
     project?.name ??
     skill?.name ??
     experience?.title ??
-    note?.title ??
+    written?.title ??
     (course ? `${course.courseNumber} · ${course.name}` : "Details");
 
   return (
@@ -71,8 +72,8 @@ export function EntryView({
           <ExperienceView experience={experience} />
         ) : course ? (
           <CourseView course={course} />
-        ) : note ? (
-          <NoteView note={note} documentUrl={documentUrl} />
+        ) : written ? (
+          <WrittenPageView page={written} documentUrl={documentUrl} />
         ) : skill ? (
           <SkillView skill={skill} />
         ) : (
@@ -89,7 +90,7 @@ export function EntryView({
           project?.headline,
           experience?.headline,
           course?.headline,
-          note?.title,
+          written?.title,
           skill?.name,
         ]
           .filter(Boolean)
@@ -248,22 +249,22 @@ function CourseView({ course }: { course: ReferenceCourse }) {
 }
 
 /**
- * A published background note: prose the public site doesn't carry,
+ * One of the site's written pages: prose the public site doesn't carry,
  * plus the document it was transcribed from when there is one.
  */
-function NoteView({
-  note,
+function WrittenPageView({
+  page,
   documentUrl,
 }: {
-  note: ReferenceNote;
+  page: ReferencePage;
   documentUrl: string | null;
 }) {
   return (
     <>
       <section className={CARD}>
-        <MatchProse text={note.body} />
+        <MatchProse text={page.body} headings={page.headings} />
 
-        {note.hasDocument ? (
+        {page.hasDocument ? (
           documentUrl ? (
             <a
               href={documentUrl}
@@ -276,21 +277,24 @@ function NoteView({
             </a>
           ) : (
             <p className="mt-5 text-[13px] text-[#5f6368]">
-              The document behind this note isn&apos;t available right now.
+              The document behind this page isn&apos;t available right now.
             </p>
           )
         ) : null}
       </section>
 
-      <TechStack skillIds={note.skillIds} />
+      <TechStack skillIds={page.skillIds} />
+
+      {/* Derived, not authored — see RankedSkills. */}
+      {page.showSkillRanking ? <RankedSkills /> : null}
     </>
   );
 }
 
 function SkillView({ skill }: { skill: ReferenceSkill }) {
   const { resolver } = useMatch();
-  const { experiences, projects, notes } = resolver.workUsingSkill(skill.id);
-  const total = experiences.length + projects.length + notes.length;
+  const { experiences, projects, pages } = resolver.workUsingSkill(skill.id);
+  const total = experiences.length + projects.length + pages.length;
 
   return (
     <>
@@ -344,16 +348,16 @@ function SkillView({ skill }: { skill: ReferenceSkill }) {
         </EntryGroup>
       ) : null}
 
-      {notes.length > 0 ? (
-        <EntryGroup title="Background">
+      {pages.length > 0 ? (
+        <EntryGroup title="Pages">
           <ul className="space-y-2">
-            {notes.map((note) => (
-              <li key={note.id}>
+            {pages.map((written) => (
+              <li key={written.id}>
                 <PreviewCard
-                  target={{ kind: "note", id: note.id }}
-                  title={note.title}
-                  headline={markdownToPlainText(note.body).slice(0, 180)}
-                  note={note.hasDocument ? "Document" : null}
+                  target={{ kind: "page", id: written.id }}
+                  title={written.title}
+                  headline={markdownToPlainText(written.body).slice(0, 180)}
+                  note={written.hasDocument ? "Document" : null}
                 />
               </li>
             ))}

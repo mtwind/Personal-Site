@@ -6,7 +6,7 @@
  * so a reader navigates the profile the way they navigate any site, with
  * working back/forward, shareable links and cmd-click.
  *
- * Section prose can name an entry with a token —
+ * Page prose can name an entry with a token —
  * `[[project:Simple C Compiler]]`, `[[skill:C]]`, `[[course:CS 4120]]` —
  * which renders as a link to that page. Tokens resolve by *name* rather
  * than id so the page stays hand-editable in a textarea.
@@ -15,7 +15,8 @@
  * server from `ProfileData` and handed to the client shell as props.
  */
 import { formatDateRange } from "@/lib/format";
-import type { KnowledgeNote } from "@/lib/knowledge-data";
+import { markdownHeadings } from "@/lib/match-markdown";
+import type { SitePage } from "@/lib/pages-data";
 import type { ProfileData } from "@/lib/profile-data";
 import { skillIconUrl, type Skill } from "@/lib/skill-icon";
 
@@ -80,19 +81,37 @@ export interface ReferenceCourse {
   projectIds: string[];
 }
 
+/** A heading inside a page, and the anchor that scrolls to it. */
+export interface PageHeading {
+  /** `#id` on the rendered page; unique within that page. */
+  id: string;
+  text: string;
+  level: number;
+}
+
 /**
- * A published background note. Private ones never reach the index —
- * they ground the overview's answers but have no page to link to, so
- * putting them here would be inviting a citation that 404s.
+ * A published page. Private ones never reach the index — they ground the
+ * overview's answers but have no URL to link to, so putting them here
+ * would be inviting a citation that 404s.
  */
-export interface ReferenceNote {
+export interface ReferencePage {
   id: string;
   slug: string;
   title: string;
-  /** The prose itself; notes are short enough to render whole. */
+  /** The prose itself; pages are short enough to render whole. */
   body: string;
+  /**
+   * The page's own headings, resolved once here rather than re-parsed
+   * by every surface that wants to link into the middle of a page.
+   */
+  headings: PageHeading[];
   /** True when a document is attached, so the page can offer it. */
   hasDocument: boolean;
+  /**
+   * When set, the page also renders the ranking derived from what the
+   * profile is tagged with — the claim and its evidence in one place.
+   */
+  showSkillRanking: boolean;
   skillIds: string[];
 }
 
@@ -101,7 +120,7 @@ export interface MatchReferenceIndex {
   experiences: ReferenceExperience[];
   courses: ReferenceCourse[];
   skills: ReferenceSkill[];
-  notes: ReferenceNote[];
+  pages: ReferencePage[];
 }
 
 export type ReferenceKind =
@@ -109,7 +128,7 @@ export type ReferenceKind =
   | "skill"
   | "experience"
   | "course"
-  | "note";
+  | "page";
 
 /** URL segment each kind of entry lives under. */
 export const KIND_SEGMENT: Record<ReferenceKind, string> = {
@@ -117,7 +136,7 @@ export const KIND_SEGMENT: Record<ReferenceKind, string> = {
   experience: "experience",
   course: "course",
   skill: "skill",
-  note: "note",
+  page: "page",
 };
 
 /** Singular label for a kind, as shown above an entry's title. */
@@ -126,7 +145,7 @@ export const KIND_LABEL: Record<ReferenceKind, string> = {
   experience: "Experience",
   course: "Course",
   skill: "Skill",
-  note: "Background",
+  page: "Page",
 };
 
 /** An entry the reader can open. */
@@ -139,6 +158,22 @@ export type MatchSegment =
   | { type: "text"; text: string }
   | { type: "ref"; kind: ReferenceKind; id: string; label: string };
 
+/**
+ * Anchor ids for a page's headings.
+ *
+ * Slugged the same way entry names are, and de-duplicated per page, so
+ * two sections both called "What I'm looking for" still get distinct
+ * anchors instead of both scrolling to the first one.
+ */
+export function pageHeadings(body: string): PageHeading[] {
+  const slug = uniqueSlugger();
+  return markdownHeadings(body).map((heading) => ({
+    id: slug(heading.text),
+    text: heading.text,
+    level: heading.level,
+  }));
+}
+
 /** A related project plus the skills that made it related. */
 export interface SimilarProject {
   project: ReferenceProject;
@@ -149,8 +184,8 @@ export interface SimilarProject {
 export interface SkillUsage {
   experiences: ReferenceExperience[];
   projects: ReferenceProject[];
-  /** Published notes only — a private note has no page to link to. */
-  notes: ReferenceNote[];
+  /** Published pages only — a private one has no URL to link to. */
+  pages: ReferencePage[];
 }
 
 /**
@@ -158,9 +193,18 @@ export interface SkillUsage {
  *
  * The name stops at `|` or `]` so an unterminated token degrades to
  * plain text instead of swallowing the rest of the paragraph.
+ *
+ * `note:` is the old spelling of `page:`, kept because prose written
+ * before the rename is stored as text and would otherwise quietly lose
+ * its links.
  */
-const TOKEN_PATTERN =
-  /\[\[(project|skill|course|experience|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+export const TOKEN_PATTERN =
+  /\[\[(project|skill|course|experience|page|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+
+/** The kind a token names, with the legacy spelling folded in. */
+function tokenKind(raw: string): ReferenceKind {
+  return raw === "note" ? "page" : (raw as ReferenceKind);
+}
 
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
@@ -211,8 +255,8 @@ export function uniqueSlugger(): (value: string) => string {
  */
 export function buildReferenceIndex(
   profile: ProfileData,
-  /** Published background notes; private and draft ones are not pages. */
-  notes: KnowledgeNote[] = [],
+  /** Every non-draft page; only published ones become entries. */
+  sitePages: SitePage[] = [],
 ): MatchReferenceIndex {
   const courseSlug = uniqueSlugger();
   const courses: ReferenceCourse[] = profile.courses.map((course) => ({
@@ -254,11 +298,11 @@ export function buildReferenceIndex(
   };
   collectSkills(allProjects);
   collectSkills(profile.experiences);
-  collectSkills(notes);
+  collectSkills(sitePages);
 
   const projectSlug = uniqueSlugger();
   const experienceSlug = uniqueSlugger();
-  const noteSlug = uniqueSlugger();
+  const pageSlug = uniqueSlugger();
 
   return {
     projects: allProjects.map((project) => ({
@@ -293,15 +337,17 @@ export function buildReferenceIndex(
     })),
     courses,
     skills: [...skillsById.values()],
-    notes: notes
-      .filter((note) => note.visibility === "published")
-      .map((note) => ({
-        id: note.id,
-        slug: noteSlug(note.title),
-        title: note.title,
-        body: note.body,
-        hasDocument: note.filePath !== null,
-        skillIds: note.skills.map((skill) => skill.id),
+    pages: sitePages
+      .filter((page) => page.visibility === "published")
+      .map((page) => ({
+        id: page.id,
+        slug: pageSlug(page.title),
+        title: page.title,
+        body: page.body,
+        headings: pageHeadings(page.body),
+        hasDocument: page.filePath !== null,
+        showSkillRanking: page.showSkillRanking,
+        skillIds: page.skills.map((skill) => skill.id),
       })),
   };
 }
@@ -325,7 +371,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
   const skillsById = new Map(index.skills.map((s) => [s.id, s]));
   const experiencesById = new Map(index.experiences.map((e) => [e.id, e]));
   const coursesById = new Map(index.courses.map((c) => [c.id, c]));
-  const notesById = new Map(index.notes.map((n) => [n.id, n]));
+  const pagesById = new Map(index.pages.map((p) => [p.id, p]));
 
   const projectsByName = new Map(
     index.projects.map((p) => [normalizeKey(p.name), p]),
@@ -348,8 +394,8 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     ]),
   );
 
-  const notesByName = new Map(
-    index.notes.map((n) => [normalizeKey(n.title), n]),
+  const pagesByName = new Map(
+    index.pages.map((p) => [normalizeKey(p.title), p]),
   );
 
   const bySlug: Record<ReferenceKind, Map<string, { id: string }>> = {
@@ -357,7 +403,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     experience: new Map(index.experiences.map((e) => [e.slug, e])),
     course: new Map(index.courses.map((c) => [c.slug, c])),
     skill: new Map(index.skills.map((s) => [s.slug, s])),
-    note: new Map(index.notes.map((n) => [n.slug, n])),
+    page: new Map(index.pages.map((p) => [p.slug, p])),
   };
 
   const projectSkillSets = new Map(
@@ -380,8 +426,8 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     return coursesById.get(id) ?? null;
   }
 
-  function note(id: string): ReferenceNote | null {
-    return notesById.get(id) ?? null;
+  function page(id: string): ReferencePage | null {
+    return pagesById.get(id) ?? null;
   }
 
   /** Kind-agnostic lookup, for tabs and links that only carry a target. */
@@ -411,11 +457,11 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
             }
           : null;
       }
-      case "note": {
-        const found = notesById.get(target.id);
+      case "page": {
+        const found = pagesById.get(target.id);
         return found
           ? {
-              kind: "note",
+              kind: "page",
               id: found.id,
               slug: found.slug,
               title: found.title,
@@ -461,10 +507,11 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     };
 
     while ((match = pattern.exec(text)) !== null) {
-      const [raw, kind, rawName, rawLabel] = match;
+      const [raw, rawKind, rawName, rawLabel] = match;
       pushText(text.slice(lastIndex, match.index));
       lastIndex = match.index + raw.length;
 
+      const kind = tokenKind(rawKind);
       const name = rawName.trim();
       const label = rawLabel?.trim() || name;
       const key = normalizeKey(name);
@@ -475,8 +522,8 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
             ? skillsByName.get(key)
             : kind === "course"
               ? coursesByName.get(key)
-              : kind === "note"
-                ? notesByName.get(key)
+              : kind === "page"
+                ? pagesByName.get(key)
                 : experiencesByName.get(key);
 
       // Unresolved tokens read as plain prose rather than leaking syntax.
@@ -485,12 +532,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
         continue;
       }
 
-      segments.push({
-        type: "ref",
-        kind: kind as ReferenceKind,
-        id: target.id,
-        label,
-      });
+      segments.push({ type: "ref", kind, id: target.id, label });
     }
 
     pushText(text.slice(lastIndex));
@@ -536,7 +578,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
       }));
   }
 
-  /** Every experience, project and published note tagged with a skill. */
+  /** Every experience, project and published page tagged with a skill. */
   function workUsingSkill(skillId: string): SkillUsage {
     return {
       experiences: index.experiences.filter((experience) =>
@@ -545,7 +587,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
       projects: index.projects.filter((project) =>
         project.skillIds.includes(skillId),
       ),
-      notes: index.notes.filter((note) => note.skillIds.includes(skillId)),
+      pages: index.pages.filter((page) => page.skillIds.includes(skillId)),
     };
   }
 
@@ -572,7 +614,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
           score:
             usage.experiences.length * 2 +
             usage.projects.length +
-            usage.notes.length,
+            usage.pages.length,
         };
       })
       .filter((entry) => entry.score > 0)
@@ -586,7 +628,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     skill,
     experience,
     course,
-    note,
+    page,
     entry,
     fromSlug,
     parse,

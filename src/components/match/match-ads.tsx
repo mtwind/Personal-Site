@@ -1,11 +1,20 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   adIconUrl,
+  DEFAULT_AD_INFO,
   planAds,
+  RAIL_LIMIT,
   type Ad,
   type AdPlan,
   type AdSlot,
@@ -165,9 +174,11 @@ function AdLogo({ ad, size = 28 }: { ad: Ad; size?: number }) {
  *
  * These are real brands with real outbound links and no money behind
  * them, so the disclosure says so plainly rather than leaving the label
- * to imply a relationship that doesn't exist.
+ * to imply a relationship that doesn't exist. Each ad may word that its
+ * own way; one that doesn't falls back to the shared line, so the
+ * disclosure can never go missing by being left blank.
  */
-function AdLabel({ compact = false }: { compact?: boolean }) {
+function AdLabel({ ad, compact = false }: { ad: Ad; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const noteId = useId();
 
@@ -207,11 +218,9 @@ function AdLabel({ compact = false }: { compact?: boolean }) {
         <span
           id={noteId}
           role="note"
-          className="absolute top-full left-0 z-20 mt-1.5 w-60 rounded-lg border border-[#dadce0] bg-white p-3 text-[12px] leading-5 font-normal text-[#5f6368] normal-case shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
+          className="absolute top-full left-0 z-20 mt-1.5 w-60 rounded-lg border border-[#dadce0] bg-white p-3 text-[12px] leading-5 font-normal whitespace-pre-line text-[#5f6368] normal-case shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
         >
-          Why this ad? Because I actually like this stuff. Nobody paid for it —
-          these are placed by me, for the joke, on a page pretending to be
-          Google.
+          {ad.infoText || DEFAULT_AD_INFO}
         </span>
       ) : null}
     </span>
@@ -251,7 +260,7 @@ export function SponsoredResults({ query }: { query: string }) {
     <div className="mt-4 space-y-4">
       {picks.map((ad) => (
         <div key={ad.id} className="rounded-xl px-3.5 py-2">
-          <AdLabel />
+          <AdLabel ad={ad} />
           <div className="mt-1.5 flex items-center gap-2.5">
             <AdLogo ad={ad} />
             <span className="leading-tight">
@@ -287,58 +296,150 @@ export function SponsoredResults({ query }: { query: string }) {
  * phone should lose.
  */
 export function AdRail() {
-  const { reportAds } = useMatch();
   const pathname = usePathname();
-  const picks = useAdPlan().rail;
-
-  useImpression(picks[0] ?? null, "rail", pathname);
-  useImpression(picks[1] ?? null, "rail", pathname);
+  const pool = useAdPlan().rail;
+  const railRef = useRef<HTMLElement>(null);
+  const capacity = useRailCapacity(railRef, pool.length);
+  const picks = pool.slice(0, capacity);
 
   if (picks.length === 0) return null;
 
   return (
     <aside
+      ref={railRef}
       aria-label="Sponsored"
       className="sticky top-[7.5rem] hidden w-[300px] shrink-0 space-y-4 min-[1100px]:block"
     >
       {picks.map((ad) => (
-        <div
-          key={ad.id}
-          className="rounded-2xl border border-[#dadce0] bg-white p-4 transition-shadow duration-300 hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
-        >
-          <AdLabel compact />
-          <div className="mt-3 flex items-center gap-2.5">
-            <AdLogo ad={ad} size={36} />
-            <span className="leading-tight">
-              <span className="block text-[14px] font-medium text-[#202124]">
-                {ad.brand}
-              </span>
-              <span className="block text-[12px] text-[#5f6368]">
-                {ad.displayUrl}
-              </span>
-            </span>
-          </div>
-          <a
-            {...adLinkProps(ad, "rail", pathname, reportAds)}
-            className="mt-3 block text-[15px] leading-snug text-[#1a0dab] hover:underline"
-          >
-            {ad.headline}
-          </a>
-          {ad.description ? (
-            <p className="mt-1.5 text-[13px] leading-5 text-[#5f6368]">
-              {ad.description}
-            </p>
-          ) : null}
-          <a
-            {...adLinkProps(ad, "rail", pathname, reportAds)}
-            className="mt-3 inline-block rounded-full border border-[#dadce0] px-4 py-1.5 text-[13px] font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-          >
-            Visit site
-          </a>
-        </div>
+        <RailCard key={ad.id} ad={ad} view={pathname} />
       ))}
     </aside>
   );
+}
+
+/**
+ * One rail ad, at a fixed height.
+ *
+ * Uniform cards are what let the column be counted rather than measured
+ * card by card: one height, one gap, and the number that fits is
+ * arithmetic. Long copy is clamped instead of pushing its neighbours
+ * down — which is also how a real display column behaves, since an
+ * advertiser doesn't get more space for writing more.
+ */
+function RailCard({ ad, view }: { ad: Ad; view: string }) {
+  const { reportAds } = useMatch();
+
+  // Reported per card rather than per rail: the rail's length depends on
+  // the reader's screen, and an ad that didn't fit was never seen.
+  useImpression(ad, "rail", view);
+
+  return (
+    <div
+      style={{ height: RAIL_CARD_HEIGHT }}
+      className="flex flex-col overflow-hidden rounded-2xl border border-[#dadce0] bg-white p-4 transition-shadow duration-300 hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
+    >
+      <AdLabel ad={ad} compact />
+      <div className="mt-3 flex items-center gap-2.5">
+        <AdLogo ad={ad} size={36} />
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-[14px] font-medium text-[#202124]">
+            {ad.brand}
+          </span>
+          <span className="block truncate text-[12px] text-[#5f6368]">
+            {ad.displayUrl}
+          </span>
+        </span>
+      </div>
+      <a
+        {...adLinkProps(ad, "rail", view, reportAds)}
+        className="mt-3 line-clamp-2 block text-[15px] leading-snug text-[#1a0dab] hover:underline"
+      >
+        {ad.headline}
+      </a>
+      {ad.description ? (
+        <p className="mt-1.5 line-clamp-2 text-[13px] leading-5 text-[#5f6368]">
+          {ad.description}
+        </p>
+      ) : null}
+      <a
+        {...adLinkProps(ad, "rail", view, reportAds)}
+        className="mt-auto inline-block self-start rounded-full border border-[#dadce0] px-4 py-1.5 text-[13px] font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+      >
+        Visit site
+      </a>
+    </div>
+  );
+}
+
+/** One rail card's height, and the gap between them (`space-y-4`). */
+const RAIL_CARD_HEIGHT = 232;
+const RAIL_GAP = 16;
+
+/** Breathing room under the column when the viewport is what bounds it. */
+const RAIL_FOOT = 24;
+
+/**
+ * How many ads the column has room for.
+ *
+ * Two things bound it, and the smaller wins. The viewport, because the
+ * rail is sticky: an ad below the fold of a pinned column is an ad
+ * nobody scrolls to. And the content beside it, because a rail taller
+ * than the page it accompanies makes the page longer — a profile that
+ * ends in five ads reads as an ad break, not a profile.
+ *
+ * Measured rather than assumed: `top` comes from the sticky offset the
+ * class actually applied, and the card height from the card actually
+ * rendered, so this stays right if either is restyled.
+ */
+function useRailCapacity(
+  railRef: React.RefObject<HTMLElement | null>,
+  poolSize: number,
+): number {
+  // Starts at the number every screen can show, so the server and the
+  // first client render agree; measuring only ever adds to it.
+  const [capacity, setCapacity] = useState(RAIL_LIMIT);
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail || poolSize === 0) return;
+
+    const measure = () => {
+      // Below the breakpoint the rail is display:none and measures zero.
+      if (!window.matchMedia(RAIL_QUERY).matches) return;
+
+      const card = rail.firstElementChild?.getBoundingClientRect().height;
+      const unit = (card && card > 0 ? card : RAIL_CARD_HEIGHT) + RAIL_GAP;
+      const top = parseFloat(window.getComputedStyle(rail).top) || 0;
+
+      const content =
+        rail.previousElementSibling?.getBoundingClientRect().height ??
+        Number.POSITIVE_INFINITY;
+      const viewport = window.innerHeight - top - RAIL_FOOT;
+
+      // The last card needs no gap after it, hence the extra one here.
+      const room = Math.min(content, viewport) + RAIL_GAP;
+      const fits = Math.floor(room / unit);
+
+      setCapacity(Math.max(1, Math.min(fits, poolSize)));
+    };
+
+    measure();
+
+    // The content column grows as an AI overview streams in, so this
+    // watches the neighbour rather than only the window.
+    const observer = new ResizeObserver(measure);
+    if (rail.previousElementSibling) {
+      observer.observe(rail.previousElementSibling);
+    }
+    window.addEventListener("resize", measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [railRef, poolSize]);
+
+  return capacity;
 }
 
 /**
@@ -360,7 +461,7 @@ export function AdBanner({ terms }: { terms: string }) {
       <AdLogo ad={ad} size={32} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <AdLabel compact />
+          <AdLabel ad={ad} compact />
           <span className="text-[12px] text-[#5f6368]">{ad.displayUrl}</span>
         </div>
         <a

@@ -220,11 +220,6 @@ function TabGlyph({ kind }: { kind: MatchTab["kind"] }) {
     >
       {kind === "home" ? (
         <path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
-      ) : kind === "section" ? (
-        <>
-          <path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-          <path d="M9 12h7M9 16h5" />
-        </>
       ) : kind === "project" ? (
         <>
           <path d="M4 7h6l2 2h8v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
@@ -235,7 +230,7 @@ function TabGlyph({ kind }: { kind: MatchTab["kind"] }) {
           <rect x="3" y="7" width="18" height="13" rx="1.5" />
           <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
         </>
-      ) : kind === "note" ? (
+      ) : kind === "page" ? (
         <>
           <path d="M5 4h11l3 3v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
           <path d="M8 11h8M8 15h5" />

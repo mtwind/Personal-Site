@@ -8,44 +8,85 @@ import {
   type MarkdownInline,
   type MarkdownListItem,
 } from "@/lib/match-markdown";
-import { KIND_LABEL } from "@/lib/match-references";
 import {
   referenceToken,
   type ReferenceOption,
 } from "@/lib/reference-options";
 import { inputClass } from "@/components/edit/form-fields";
 
-interface NoteEditorProps {
-  name: string;
+interface ProseEditorProps {
+  /**
+   * Posts under this name. Omitted when a parent owns the value and
+   * submits it some other way — an unnamed field posts nothing, which
+   * is exactly right for one whose value is already in a hidden input.
+   */
+  name?: string;
+  /** Ties the field to its <Field> label. */
+  id?: string;
   initial: string;
   rows: number;
   placeholder: string;
   /** Everything on the site a `[[…]]` token can point at. */
   options: ReferenceOption[];
+  /**
+   * Drop the Markdown buttons and keep the linking.
+   *
+   * For the short fields — an intro, a line describing a result — where
+   * headings and lists have nowhere to render, but a link to a project
+   * or a role is exactly what the sentence wants.
+   */
+  compact?: boolean;
+  /** Controlled value, for fields whose state the parent owns. */
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
 /** One indent level. Tabs, because that's what the Tab key inserts. */
 const INDENT = "\t";
 
 /**
- * The note body field: a plain textarea with the small set of editing
- * affordances the note format actually has — Markdown marks, Tab to
- * indent a list, and a picker that inserts a link to something else on
+ * Every place the site's own prose is written: a plain textarea with the
+ * small set of affordances that prose actually has — Markdown marks, Tab
+ * to indent a list, and a picker that inserts a link to anything else on
  * the site.
+ *
+ * One component for all of them on purpose. The `[[kind:name]]` tokens
+ * mean the same thing wherever they are written, so the way you insert
+ * one shouldn't depend on which box you happen to be typing in.
+ *
+ * Headings earn their button here. A `## heading` is not decoration: it
+ * becomes an anchor on the published page and a jump link under that
+ * page's search result, so the way a page is broken up is the way it can
+ * be found.
  *
  * It stays a textarea rather than becoming a rich-text surface. The
  * stored value is the Markdown source: it goes to the model in the
  * prompt as well as to the page, and a WYSIWYG layer would put a
  * lossy translation between what's typed and what's grounded on.
  */
-export function NoteEditor({
+export function ProseEditor({
   name,
+  id,
   initial,
   rows,
   placeholder,
   options,
-}: NoteEditorProps) {
-  const [value, setValue] = useState(initial);
+  compact = false,
+  value: controlled,
+  onChange,
+}: ProseEditorProps) {
+  // Uncontrolled by default — the field posts itself under `name`, and
+  // nothing outside needs to watch it. A parent that keeps the value in
+  // its own state (a row in a list, say) passes it down instead, and the
+  // editing helpers below are written against `value`/`setValue` either
+  // way rather than branching at every call site.
+  const [ownValue, setOwnValue] = useState(initial);
+  const value = controlled ?? ownValue;
+  const setValue = (next: string) => {
+    if (controlled === undefined) setOwnValue(next);
+    onChange?.(next);
+  };
+
   const [preview, setPreview] = useState(false);
   const [picking, setPicking] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -167,34 +208,42 @@ export function NoteEditor({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1">
-        <ToolButton label="H2" title="Heading" onClick={() => prefixLines("## ")} />
-        <ToolButton
-          label="B"
-          title="Bold"
-          className="font-bold"
-          onClick={() => wrap("**")}
-        />
-        <ToolButton
-          label="I"
-          title="Italic"
-          className="italic"
-          onClick={() => wrap("*")}
-        />
-        <ToolButton label="•" title="Bullet list" onClick={() => prefixLines("- ")} />
-        <ToolButton
-          label="1."
-          title="Numbered list"
-          onClick={() => prefixLines((index) => `${index + 1}. `)}
-        />
-        <ToolButton
-          label="‹›"
-          title="Inline code"
-          onClick={() => wrap("`")}
-        />
-        <span className="mx-1 h-4 w-px bg-(--line)" aria-hidden />
+        {compact ? null : (
+          <>
+            <ToolButton
+              label="H2"
+              title="Heading"
+              onClick={() => prefixLines("## ")}
+            />
+            <ToolButton
+              label="B"
+              title="Bold"
+              className="font-bold"
+              onClick={() => wrap("**")}
+            />
+            <ToolButton
+              label="I"
+              title="Italic"
+              className="italic"
+              onClick={() => wrap("*")}
+            />
+            <ToolButton
+              label="•"
+              title="Bullet list"
+              onClick={() => prefixLines("- ")}
+            />
+            <ToolButton
+              label="1."
+              title="Numbered list"
+              onClick={() => prefixLines((index) => `${index + 1}. `)}
+            />
+            <ToolButton label="‹›" title="Inline code" onClick={() => wrap("`")} />
+            <span className="mx-1 h-4 w-px bg-(--line)" aria-hidden />
+          </>
+        )}
         <ToolButton
           label="Link to…"
-          title="Insert a link to a project, role, course, skill or note"
+          title="Insert a link to a project, role, course, skill or page"
           onClick={() => {
             // Back to the source first: the token lands at the caret,
             // and a caret you can't see is a token you can't place.
@@ -229,7 +278,8 @@ export function NoteEditor({
       {/* The value posts either way — preview only swaps what's shown. */}
       <textarea
         ref={areaRef}
-        name={name}
+        id={id}
+        name={name || undefined}
         value={value}
         rows={rows}
         placeholder={placeholder}
@@ -240,14 +290,24 @@ export function NoteEditor({
         }`}
       />
 
-      {preview ? <NotePreview source={value} options={options} /> : null}
+      {preview ? <ProsePreview source={value} options={options} /> : null}
 
       <p className="font-sans text-[11px] leading-5 text-(--dim)">
-        Markdown: <code className="font-mono">## heading</code>,{" "}
-        <code className="font-mono">- bullet</code> (Tab to nest),{" "}
-        <code className="font-mono">**bold**</code>,{" "}
-        <code className="font-mono">*italic*</code>. Tab indents inside the
-        box — press Escape first if you want to tab out of it.
+        {compact ? (
+          <>
+            Use <span className="font-medium">Link to…</span> to mention a page,
+            role, project, course or skill — it becomes a link to that
+            entry&apos;s page.
+          </>
+        ) : (
+          <>
+            Markdown: <code className="font-mono">## heading</code>,{" "}
+            <code className="font-mono">- bullet</code> (Tab to nest),{" "}
+            <code className="font-mono">**bold**</code>,{" "}
+            <code className="font-mono">*italic*</code>. Tab indents inside the
+            box — press Escape first if you want to tab out of it.
+          </>
+        )}
       </p>
     </div>
   );
@@ -303,7 +363,10 @@ function ReferencePicker({
       ? options.filter(
           (option) =>
             option.name.toLowerCase().includes(needle) ||
-            (option.detail ?? "").toLowerCase().includes(needle),
+            (option.detail ?? "").toLowerCase().includes(needle) ||
+            // Searching the kind is how you browse rather than recall:
+            // "coursework" or "role" lists them without knowing a name.
+            option.label.toLowerCase().includes(needle),
         )
       : options;
     return pool.slice(0, PICKER_LIMIT);
@@ -322,7 +385,7 @@ function ReferencePicker({
             if (matches[0]) onPick(matches[0]);
           }
         }}
-        placeholder="Find a project, role, course, skill or published note…"
+        placeholder="Find a page, role, project, coursework, course or skill…"
         className={inputClass}
       />
       {options.length === 0 ? (
@@ -343,7 +406,7 @@ function ReferencePicker({
                 className="flex w-full items-baseline gap-2 rounded px-2 py-1 text-left font-sans text-sm text-(--text) transition-colors duration-150 hover:bg-(--hover-bg)"
               >
                 <span className="shrink-0 font-sans text-[10px] tracking-[0.1em] text-(--dim) uppercase">
-                  {KIND_LABEL[option.kind]}
+                  {option.label}
                 </span>
                 <span className="min-w-0 truncate">{option.name}</span>
                 {option.detail ? (
@@ -361,7 +424,7 @@ function ReferencePicker({
 }
 
 /**
- * What the note will look like, with links checked.
+ * What the page will look like, with links checked.
  *
  * The team-matching renderer can't be reused here: it resolves tokens
  * against the live index through React context that only exists inside
@@ -370,7 +433,7 @@ function ReferencePicker({
  * token that won't resolve is shown as broken rather than silently
  * degrading to plain words.
  */
-function NotePreview({
+function ProsePreview({
   source,
   options,
 }: {
@@ -470,8 +533,13 @@ function PreviewList({
   );
 }
 
-/** `[[kind:name]]` or `[[kind:name|label]]`, mirroring the resolver. */
-const TOKEN = /\[\[(project|skill|course|experience|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+/**
+ * `[[kind:name]]` or `[[kind:name|label]]`, mirroring the resolver —
+ * `note:` included, since the resolver still honours the old spelling
+ * and the preview would otherwise mark working links as broken.
+ */
+const TOKEN =
+  /\[\[(project|skill|course|experience|page|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 
 function PreviewInline({
   nodes,
@@ -530,7 +598,9 @@ function PreviewTokens({
     if (match.index > cursor) pieces.push(text.slice(cursor, match.index));
     cursor = match.index + match[0].length;
 
-    const [, kind, rawName, rawLabel] = match;
+    const [, rawKind, rawName, rawLabel] = match;
+    // `note:` is the old spelling of `page:`; both resolve the same way.
+    const kind = rawKind === "note" ? "page" : rawKind;
     const name = rawName.trim();
     const label = rawLabel?.trim() || name;
     const resolves = known.has(`${kind}:${name.toLowerCase()}`);

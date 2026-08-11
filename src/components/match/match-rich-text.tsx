@@ -5,15 +5,26 @@ import { Fragment } from "react";
 
 import type { ReferenceTarget } from "@/lib/match-references";
 import { targetHref } from "@/lib/match-tabs";
+import { Highlighted } from "./highlighted";
 import { useMatch } from "./match-shell";
 
 /**
- * Render authored prose, turning `[[project:…]]` / `[[skill:…]]` /
- * `[[course:…]]` tokens into links to those pages. Emits a fragment so
- * the caller keeps control of the wrapping element (and its
- * `whitespace-pre-line`).
+ * Render authored prose, turning `[[page:…]]` / `[[project:…]]` /
+ * `[[experience:…]]` / `[[course:…]]` / `[[skill:…]]` tokens into links
+ * to those pages. Emits a fragment so the caller keeps control of the
+ * wrapping element (and its `whitespace-pre-line`).
+ *
+ * `terms` embolden the query's words in the plain runs, so the same
+ * component can render a search result's description without either
+ * feature disabling the other.
  */
-export function MatchRichText({ text }: { text: string }) {
+export function MatchRichText({
+  text,
+  terms = [],
+}: {
+  text: string;
+  terms?: string[];
+}) {
   const { resolver } = useMatch();
   const segments = resolver.parse(text);
 
@@ -21,7 +32,13 @@ export function MatchRichText({ text }: { text: string }) {
     <>
       {segments.map((segment, index) =>
         segment.type === "text" ? (
-          <Fragment key={index}>{segment.text}</Fragment>
+          <Fragment key={index}>
+            {terms.length > 0 ? (
+              <Highlighted text={segment.text} terms={terms} />
+            ) : (
+              segment.text
+            )}
+          </Fragment>
         ) : (
           <ReferenceChip
             key={index}

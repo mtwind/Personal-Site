@@ -2,34 +2,34 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { KnowledgeManager } from "@/components/admin/knowledge-manager";
+import { PagesManager } from "@/components/admin/pages-manager";
 import { adminReturn } from "@/lib/admin-return";
 import { getAuthState } from "@/lib/auth";
 import { extractionAvailable } from "@/lib/extract-document";
-import { getKnowledgeNotes } from "@/lib/knowledge-data";
+import { getSitePages } from "@/lib/pages-data";
 import { buildReferenceIndex } from "@/lib/match-references";
 import { getProfileData } from "@/lib/profile-data";
 import { referenceOptions } from "@/lib/reference-options";
 
 /** Editor-only admin view; invisible (404) to everyone else. */
 export const metadata: Metadata = {
-  title: "Background",
+  title: "Pages",
   robots: { index: false, follow: false },
 };
 
-export default async function KnowledgeAdminPage() {
+export default async function PagesAdminPage() {
   const { isEditor } = await getAuthState();
   if (!isEditor) notFound();
 
-  const [notes, profile, back] = await Promise.all([
-    getKnowledgeNotes(),
+  const [sitePages, profile, back] = await Promise.all([
+    getSitePages(),
     getProfileData(),
     adminReturn(),
   ]);
 
   // The picker offers exactly what the resolver will accept, built from
   // the same index the team-matching pages render from.
-  const options = referenceOptions(buildReferenceIndex(profile, notes));
+  const options = referenceOptions(buildReferenceIndex(profile, sitePages));
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10">
@@ -39,16 +39,16 @@ export default async function KnowledgeAdminPage() {
       >
         {back.label}
       </Link>
-      <h1 className="mt-6 text-3xl text-(--title)">Background</h1>
+      <h1 className="mt-6 text-3xl text-(--title)">Pages</h1>
       <p className="mt-1 max-w-[60ch] font-sans text-[12.5px] text-(--dim)">
-        Things about you the site doesn&apos;t say — where you are in a process,
-        what you told an interviewer, a letter someone wrote about you. The AI
-        overview answers from these, so it can cover questions the résumé
-        can&apos;t.
+        The written half of the team-matching site: where you are in a process,
+        what you told an interviewer, a letter someone wrote about you. A
+        published page is a real page a visitor can open; every page that
+        isn&apos;t a draft also grounds the AI overview&apos;s answers.
       </p>
 
-      <KnowledgeManager
-        notes={notes}
+      <PagesManager
+        pages={sitePages}
         extractionEnabled={extractionAvailable()}
         referenceOptions={options}
       />

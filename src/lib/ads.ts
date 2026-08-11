@@ -34,6 +34,7 @@ function toAd(row: AdRow): Ad {
     iconSlug: row.iconSlug,
     color: row.color,
     iconUrl: row.iconUrl,
+    infoText: row.infoText,
     keywords: row.keywords,
     slots: row.slots,
   };

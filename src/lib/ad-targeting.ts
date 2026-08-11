@@ -16,6 +16,16 @@ export function isAdSlot(value: string): value is AdSlot {
   return (AD_SLOTS as string[]).includes(value);
 }
 
+/**
+ * What the ⓘ says when an ad doesn't say anything of its own.
+ *
+ * Lives here rather than in the component because it is the *content* of
+ * the disclosure, not its presentation — the admin form shows it as the
+ * placeholder, so what an editor sees in the box is what a reader gets.
+ */
+export const DEFAULT_AD_INFO =
+  "Why this ad? Because I actually like this stuff. Nobody paid for it — these are placed by me, for the joke, on a page pretending to be Google.";
+
 /** An ad as the page renders it — no admin-only columns. */
 export interface Ad {
   id: string;
@@ -27,6 +37,8 @@ export interface Ad {
   iconSlug: string | null;
   color: string | null;
   iconUrl: string | null;
+  /** Empty falls back to `DEFAULT_AD_INFO`. */
+  infoText: string;
   keywords: string[];
   slots: string[];
 }
@@ -146,8 +158,18 @@ export function selectAds(pool: Ad[], options: SelectAdsOptions): Ad[] {
     .map((entry) => entry.ad);
 }
 
-/** How many ads each placement runs at once. */
+/** How many sponsored results run above the search results. */
 export const SPONSORED_LIMIT = 2;
+
+/**
+ * How many rail ads are *certain* to be on screen.
+ *
+ * The rail itself runs as many as the page has room for, which only the
+ * browser can know. This is the number the other placements assume when
+ * they avoid repeating an advertiser: guaranteed to be visible, so the
+ * ad beside the content is never also the ad under it, while a rail that
+ * grows on a tall screen can still reach for the rest of the pool.
+ */
 export const RAIL_LIMIT = 2;
 
 export interface AdPlanInput {
@@ -161,6 +183,7 @@ export interface AdPlanInput {
 
 export interface AdPlan {
   sponsored: Ad[];
+  /** Every eligible rail ad, best first — not a final count. */
   rail: Ad[];
   banner: Ad | null;
 }
@@ -193,13 +216,15 @@ export function planAds(pool: Ad[], input: AdPlanInput): AdPlan {
     : [];
   const taken = sponsored.map((ad) => ad.id);
 
+  // Ranked in full: the rail component decides how many of these it can
+  // actually show once it has measured the page.
   const rail = selectAds(pool, {
     slot: "rail",
-    limit: RAIL_LIMIT,
+    limit: pool.length,
     seed: pathname,
     exclude: taken,
   });
-  taken.push(...rail.map((ad) => ad.id));
+  taken.push(...rail.slice(0, RAIL_LIMIT).map((ad) => ad.id));
 
   const [banner = null] = selectAds(pool, {
     slot: "banner",

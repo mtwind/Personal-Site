@@ -8,12 +8,12 @@ import {
   type MarkdownInline,
   type MarkdownListItem,
 } from "@/lib/match-markdown";
-import type { ReferenceResolver } from "@/lib/match-references";
+import type { PageHeading, ReferenceResolver } from "@/lib/match-references";
 import { ReferenceChip } from "./match-rich-text";
 import { useMatch } from "./match-shell";
 
 /**
- * Authored prose with both of the note editor's affordances: the
+ * Authored prose with both of the page editor's affordances: the
  * Markdown subset in `match-markdown`, and this site's own
  * `[[project:…]]` reference tokens.
  *
@@ -22,14 +22,35 @@ import { useMatch } from "./match-shell";
  * bullet or a bold phrase without either feature needing to know the
  * other exists.
  */
-export function MatchProse({ text }: { text: string }) {
+export function MatchProse({
+  text,
+  /**
+   * The page's headings, already slugged by the reference index. Passing
+   * them in rather than re-deriving anchors here is what guarantees a
+   * search result's jump link and the id it scrolls to are the same
+   * string — they are minted once, in one place.
+   */
+  headings = [],
+}: {
+  text: string;
+  headings?: PageHeading[];
+}) {
   const { resolver } = useMatch();
   const blocks = parseMarkdown(text);
+
+  // Headings come out of the parser in document order, so the nth
+  // heading block is the nth anchor.
+  let seen = 0;
 
   return (
     <div className="space-y-4">
       {blocks.map((block, index) => (
-        <Block key={index} block={block} resolver={resolver} />
+        <Block
+          key={index}
+          block={block}
+          resolver={resolver}
+          anchor={block.type === "heading" ? headings[seen++]?.id : undefined}
+        />
       ))}
     </div>
   );
@@ -46,17 +67,24 @@ const HEADING_CLASS: Record<number, string> = {
 function Block({
   block,
   resolver,
+  anchor,
 }: {
   block: MarkdownBlock;
   resolver: ReferenceResolver;
+  /** Set on headings, so a link can land on this part of the page. */
+  anchor?: string;
 }) {
   switch (block.type) {
     case "heading": {
-      // A note is a fragment of a page, so its top heading is an h2 —
-      // the entry title above it already owns the h1.
+      // The prose is the body of a page, so its top heading is an h2 —
+      // the title above it already owns the h1.
       const Tag = (["h2", "h3", "h4", "h5"] as const)[block.level - 1];
       return (
-        <Tag className={`${HEADING_CLASS[block.level]} first:mt-0`}>
+        <Tag
+          id={anchor}
+          // Clear the sticky header and tab strip when jumped to.
+          className={`${HEADING_CLASS[block.level]} scroll-mt-32 first:mt-0`}
+        >
           <Inline nodes={block.inline} resolver={resolver} />
         </Tag>
       );
@@ -64,7 +92,7 @@ function Block({
 
     case "paragraph":
       return (
-        // Single newlines inside a paragraph stay newlines: notes are
+        // Single newlines inside a paragraph stay newlines: pages are
         // often jotted with hard line breaks and shouldn't reflow.
         <p className="text-[16px] leading-7 whitespace-pre-line text-[#3c4043]">
           <Inline nodes={block.inline} resolver={resolver} />

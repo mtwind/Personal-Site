@@ -6,14 +6,18 @@
  * catalog and the whole reference index along with it.
  */
 /**
- * The pages the team-matching page opens with.
+ * The pages a new team-matching site opens with.
  *
- * Sections *are* pages here, so this is the site map: seeding these four
- * gives a new page its structure, and the editor renames, reorders or
- * adds to them from there. The last title is what
- * `SKILLS_SECTION_SLUG` points at — keep them in step.
+ * Seeding these four gives it something to say and something to
+ * feature — they are published pages, and the seed lists them on the
+ * home page in this order. The editor renames, reorders, unpublishes or
+ * adds to them from there.
  */
-export const DEFAULT_SECTIONS: { title: string; body: string }[] = [
+export const DEFAULT_PAGES: {
+  title: string;
+  body: string;
+  showSkillRanking?: boolean;
+}[] = [
   {
     title: "My Interview Process",
     body: "Where I am in Google's process, who I've spoken to, and what each round covered.",
@@ -29,5 +33,7 @@ export const DEFAULT_SECTIONS: { title: string; body: string }[] = [
   {
     title: "My Strongest Skills",
     body: "What I reach for first, and what I've actually shipped with it.",
+    // The ranking underneath is derived from tagged work, not written.
+    showSkillRanking: true,
   },
 ];

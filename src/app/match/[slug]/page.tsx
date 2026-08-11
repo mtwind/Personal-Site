@@ -27,7 +27,13 @@ export default async function MatchHome(props: PageProps<"/match/[slug]">) {
   // The editor is a mode of the home page rather than a route of its
   // own: it belongs to no tab, and closing it is a plain link back.
   if (auth.isEditor && search.edit === "1") {
-    return <MatchEditorForm page={page} referenceIndex={context.index} />;
+    return (
+      <MatchEditorForm
+        page={page}
+        featured={context.featured}
+        referenceIndex={context.index}
+      />
+    );
   }
 
   const meetingHref =
@@ -45,6 +51,7 @@ export default async function MatchHome(props: PageProps<"/match/[slug]">) {
       aiEnabled={Boolean(getServerEnv().ANTHROPIC_API_KEY)}
       headline={page.headline}
       intro={page.intro}
+      featured={context.featured}
       resumeUrl={page.resumeUrl}
       meetingHref={meetingHref}
     />

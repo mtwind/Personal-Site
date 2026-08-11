@@ -39,7 +39,6 @@ export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
     <MatchShell
       base={matchBase(slug)}
       index={context.index}
-      sections={context.sections}
       ownerName={context.ownerName}
       homeTitle={context.page.headline || "Team Matching"}
       isEditor={auth.isEditor}

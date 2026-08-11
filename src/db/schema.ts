@@ -127,18 +127,18 @@ export const projectSkills = pgTable(
   (table) => [primaryKey({ columns: [table.projectId, table.skillId] })],
 );
 
-export const knowledgeNoteSkills = pgTable(
-  "knowledge_note_skills",
+export const pageSkills = pgTable(
+  "page_skills",
   {
-    noteId: uuid("note_id")
+    pageId: uuid("page_id")
       .notNull()
-      .references(() => knowledgeNotes.id, { onDelete: "cascade" }),
+      .references(() => pages.id, { onDelete: "cascade" }),
     skillId: uuid("skill_id")
       .notNull()
       .references(() => skills.id, { onDelete: "cascade" }),
     sortOrder: integer("sort_order").notNull().default(0),
   },
-  (table) => [primaryKey({ columns: [table.noteId, table.skillId] })],
+  (table) => [primaryKey({ columns: [table.pageId, table.skillId] })],
 );
 
 /** Media/link attachments for experiences and projects. */
@@ -166,9 +166,24 @@ export const teamMatchPage = pgTable("team_match_page", {
   slug: text("slug").notNull().unique(),
   headline: text("headline").notNull().default(""),
   intro: text("intro").notNull().default(""),
-  /** Flexible content blocks rendered as cards. */
-  sections: jsonb("sections")
-    .$type<{ title: string; body: string }[]>()
+  /**
+   * The home page's results, in order: entries picked out of everything
+   * the site already holds — a page, a project, a role, a course, a
+   * skill — each optionally re-titled or re-described for this listing.
+   *
+   * Referenced by id rather than by name, so renaming a project doesn't
+   * silently drop it off the home page. An entry that no longer exists
+   * resolves to nothing and is skipped.
+   */
+  featured: jsonb("featured")
+    .$type<
+      {
+        kind: string;
+        id: string;
+        title: string | null;
+        snippet: string | null;
+      }[]
+    >()
     .notNull()
     .default([]),
   /** Google-specific résumé, separate from the public contact one. */
@@ -181,20 +196,21 @@ export const teamMatchPage = pgTable("team_match_page", {
 });
 
 /**
- * Private background about the owner, written for the AI overview.
+ * The written half of the team-matching site, and the background the AI
+ * overview answers from.
  *
  * The public site is a résumé: it says what he built, not what he is
  * looking for, what he told an interviewer, or what a reference letter
- * says about him. These notes carry that, and they reach visitors only
- * through the overview's answers — except when published, which gives a
- * note a page of its own that answers can cite.
+ * says about him. These pages carry that. A private one reaches visitors
+ * only through the overview's answers; a published one is also a page of
+ * its own that answers can cite and the home page can feature.
  */
-export const knowledgeNotes = pgTable(
-  "knowledge_notes",
+export const pages = pgTable(
+  "pages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    /** 'note' — freeform prose; 'document' — an uploaded file's text. */
-    kind: text("kind").notNull().default("note"),
+    /** 'page' — freeform prose; 'document' — an uploaded file's text. */
+    kind: text("kind").notNull().default("page"),
     title: text("title").notNull(),
     /**
      * The text the model is grounded on. For a document this starts as
@@ -206,10 +222,16 @@ export const knowledgeNotes = pgTable(
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     /**
      * 'draft'  — the model never sees it.
-     * 'private'— grounds answers; has no page and cannot be cited.
-     * 'published' — also a page under the team-matching site.
+     * 'private'— grounds answers; has no URL and cannot be cited.
+     * 'published' — also a readable page under the team-matching site.
      */
     visibility: text("visibility").notNull().default("private"),
+    /**
+     * When set, the page also renders the skill ranking derived from
+     * what the profile is tagged with. A hand-kept list of favourite
+     * languages goes stale; a count of the work using them doesn't.
+     */
+    showSkillRanking: boolean("show_skill_ranking").notNull().default(false),
     /** Storage path in the private `documents` bucket, for kind=document. */
     filePath: text("file_path"),
     fileName: text("file_name"),
@@ -223,7 +245,7 @@ export const knowledgeNotes = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("knowledge_notes_visibility_idx").on(table.visibility)],
+  (table) => [index("pages_visibility_idx").on(table.visibility)],
 );
 
 /** Exit-survey submissions from the team-matching page. */
@@ -308,6 +330,12 @@ export const ads = pgTable(
     color: text("color"),
     /** Overrides the Simple Icons URL when a brand isn't in the set. */
     iconUrl: text("icon_url"),
+    /**
+     * What the ⓘ behind "Sponsored" says about this ad. Empty falls back
+     * to the site-wide disclosure — the joke is usually the same, but an
+     * ad that needs its own explanation can carry one.
+     */
+    infoText: text("info_text").notNull().default(""),
     /** Query terms this ad wants to run against. Matching is case-fold. */
     keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
     /** Which placements it is eligible for: 'sponsored' | 'rail' | 'banner'. */
