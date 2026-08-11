@@ -96,30 +96,10 @@ body * {
   to { transform: translateX(0); }
 }
 
-/* Reference pane: a bottom sheet on mobile, a right-hand panel on desktop. */
-@keyframes pane-fade {
+/* The caret at the end of an answer still being revealed. */
+@keyframes match-blink {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-@keyframes pane-in-bottom {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-@keyframes pane-in-right {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-.match-pane {
-  animation: pane-in-bottom 0.28s cubic-bezier(0.2, 0, 0, 1);
-}
-
-@media (min-width: 48rem) {
-  .match-pane {
-    animation-name: pane-in-right;
-  }
 }
 
 /* Tab strip: tabs share the width and shrink as more open, but stop at

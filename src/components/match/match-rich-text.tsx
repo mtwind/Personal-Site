@@ -1,22 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { Fragment } from "react";
 
-import type { ReferenceResolver, ReferenceTarget } from "@/lib/match-references";
-
-interface MatchRichTextProps {
-  text: string;
-  resolver: ReferenceResolver;
-  onOpen: (target: ReferenceTarget) => void;
-}
+import type { ReferenceTarget } from "@/lib/match-references";
+import { targetHref } from "@/lib/match-tabs";
+import { useMatch } from "./match-shell";
 
 /**
- * Render section prose, turning `[[project:…]]` / `[[skill:…]]` tokens
- * into inline buttons that open the detail pane. Emits a fragment so the
- * caller keeps control of the wrapping element (and its
+ * Render authored prose, turning `[[project:…]]` / `[[skill:…]]` /
+ * `[[course:…]]` tokens into links to those pages. Emits a fragment so
+ * the caller keeps control of the wrapping element (and its
  * `whitespace-pre-line`).
  */
-export function MatchRichText({ text, resolver, onOpen }: MatchRichTextProps) {
+export function MatchRichText({ text }: { text: string }) {
+  const { resolver } = useMatch();
   const segments = resolver.parse(text);
 
   return (
@@ -28,7 +26,7 @@ export function MatchRichText({ text, resolver, onOpen }: MatchRichTextProps) {
           <ReferenceChip
             key={index}
             label={segment.label}
-            onOpen={() => onOpen({ kind: segment.kind, id: segment.id })}
+            target={{ kind: segment.kind, id: segment.id }}
           />
         ),
       )}
@@ -37,7 +35,7 @@ export function MatchRichText({ text, resolver, onOpen }: MatchRichTextProps) {
 }
 
 /**
- * An inline reference, rendered as a link that opens the detail pane.
+ * An inline reference, rendered as a link to that entry's page.
  *
  * Shared with the streaming overview, which reveals labels a character at
  * a time — hence `partial`: the launch icon is a "this is a complete
@@ -46,19 +44,23 @@ export function MatchRichText({ text, resolver, onOpen }: MatchRichTextProps) {
 export function ReferenceChip({
   label,
   partial = false,
-  onOpen,
+  target,
 }: {
   label: string;
   partial?: boolean;
-  onOpen: () => void;
+  target: ReferenceTarget;
 }) {
+  const { base, resolver } = useMatch();
+  const href = targetHref(base, resolver, target);
+
+  // An entry deleted since the prose was written reads as plain words.
+  if (!href) return <>{label}</>;
+
   return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      onClick={onOpen}
+    <Link
+      href={href}
       // `inline` (not inline-block) so long labels wrap with the prose.
-      className="inline cursor-pointer rounded-sm font-medium text-[#1a73e8] underline decoration-[#1a73e8]/40 decoration-dotted underline-offset-[3px] transition-colors hover:bg-[#e8f0fe] hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+      className="inline rounded-sm font-medium text-[#1a73e8] underline decoration-[#1a73e8]/40 decoration-dotted underline-offset-[3px] transition-colors hover:bg-[#e8f0fe] hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
     >
       {label}
       {partial ? null : (
@@ -76,6 +78,6 @@ export function ReferenceChip({
           <path d="M14 4h6v6M20 4l-8 8" />
         </svg>
       )}
-    </button>
+    </Link>
   );
 }

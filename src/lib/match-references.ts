@@ -1,23 +1,30 @@
 /**
- * Inline project/skill references for the hidden team-matching page.
+ * The entry index behind the team-matching page.
  *
- * Section prose can name a project or a skill with a token —
- * `[[project:Simple C Compiler]]` or `[[skill:C]]` — and the reader can
- * open it in a side pane without losing their place. Tokens resolve by
- * *name* rather than id so the page stays hand-editable in a textarea.
+ * Every project, experience, course and skill is a *page* of its own,
+ * reachable at a real URL — `/match/<page>/project/simple-c-compiler` —
+ * so a reader navigates the profile the way they navigate any site, with
+ * working back/forward, shareable links and cmd-click.
+ *
+ * Section prose can name an entry with a token —
+ * `[[project:Simple C Compiler]]`, `[[skill:C]]`, `[[course:CS 4120]]` —
+ * which renders as a link to that page. Tokens resolve by *name* rather
+ * than id so the page stays hand-editable in a textarea.
  *
  * Everything here is pure and serializable: the index is built on the
- * server from `ProfileData` and handed to the client component as props.
+ * server from `ProfileData` and handed to the client shell as props.
  */
 import { formatDateRange } from "@/lib/format";
 import type { ProfileData } from "@/lib/profile-data";
 import { skillIconUrl, type Skill } from "@/lib/skill-icon";
 
-/** How many related projects a project view suggests. */
+/** How many related projects a project page suggests. */
 const SIMILAR_LIMIT = 4;
 
 export interface ReferenceSkill {
   id: string;
+  /** URL segment for this skill's page. */
+  slug: string;
   name: string;
   /** Resolved on the server so the client needs no icon logic. */
   iconUrl: string | null;
@@ -32,6 +39,7 @@ export interface ReferenceMedia {
 
 export interface ReferenceProject {
   id: string;
+  slug: string;
   name: string;
   /** One-line description shown on preview cards. */
   headline: string;
@@ -43,10 +51,13 @@ export interface ReferenceProject {
   media: ReferenceMedia[];
   /** e.g. "CS 4120 · Compilers" when the project came out of a course. */
   courseLabel: string | null;
+  /** Set alongside `courseLabel`, so the label can link to its course. */
+  courseId: string | null;
 }
 
 export interface ReferenceExperience {
   id: string;
+  slug: string;
   companyName: string;
   title: string;
   /** One-line description shown on preview cards. */
@@ -56,23 +67,47 @@ export interface ReferenceExperience {
   skillIds: string[];
 }
 
+export interface ReferenceCourse {
+  id: string;
+  slug: string;
+  name: string;
+  /** e.g. "CS 4120". */
+  courseNumber: string;
+  headline: string;
+  semester: string | null;
+  /** Projects that came out of this course. */
+  projectIds: string[];
+}
+
 export interface MatchReferenceIndex {
   projects: ReferenceProject[];
   experiences: ReferenceExperience[];
+  courses: ReferenceCourse[];
   skills: ReferenceSkill[];
 }
 
-export type ReferenceKind = "project" | "skill" | "experience";
+export type ReferenceKind = "project" | "skill" | "experience" | "course";
 
-/** A reference the reader can open in the pane. */
+/** URL segment each kind of entry lives under. */
+export const KIND_SEGMENT: Record<ReferenceKind, string> = {
+  project: "project",
+  experience: "experience",
+  course: "course",
+  skill: "skill",
+};
+
+/** Singular label for a kind, as shown above an entry's title. */
+export const KIND_LABEL: Record<ReferenceKind, string> = {
+  project: "Project",
+  experience: "Experience",
+  course: "Course",
+  skill: "Skill",
+};
+
+/** An entry the reader can open. */
 export interface ReferenceTarget {
   kind: ReferenceKind;
   id: string;
-}
-
-/** Stable identity for a target, used as its tab key. */
-export function referenceKey(target: ReferenceTarget): string {
-  return `${target.kind}:${target.id}`;
 }
 
 export type MatchSegment =
@@ -97,20 +132,70 @@ export interface SkillUsage {
  * The name stops at `|` or `]` so an unterminated token degrades to
  * plain text instead of swallowing the rest of the paragraph.
  */
-const TOKEN_PATTERN = /\[\[(project|skill):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
+const TOKEN_PATTERN =
+  /\[\[(project|skill|course|experience):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
 
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
 /**
- * Flatten `ProfileData` into the client-safe shape the pane renders.
+ * URL-safe slug for an entry name.
+ *
+ * Symbols that carry meaning in tech names are spelled out first, so
+ * "C++" and "C#" don't both collapse onto "c" and end up disambiguated
+ * by a meaningless numeric suffix.
+ */
+export function slugify(value: string): string {
+  const spelled = value
+    .replace(/\+\+/g, " plus plus")
+    .replace(/\+/g, " plus")
+    .replace(/#/g, " sharp")
+    .replace(/&/g, " and ");
+
+  return (
+    spelled
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "entry"
+  );
+}
+
+/**
+ * A slugger that keeps one run of names collision-free: the first
+ * "Compilers" is `compilers`, a second becomes `compilers-2`.
+ */
+export function uniqueSlugger(): (value: string) => string {
+  const used = new Map<string, number>();
+  return (value: string) => {
+    const base = slugify(value);
+    const seen = used.get(base) ?? 0;
+    used.set(base, seen + 1);
+    return seen === 0 ? base : `${base}-${seen + 1}`;
+  };
+}
+
+/**
+ * Flatten `ProfileData` into the client-safe shape the pages render.
  * Course projects are included — a compiler or OS project is usually
  * coursework, and those are exactly the ones worth linking.
  */
 export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
+  const courseSlug = uniqueSlugger();
+  const courses: ReferenceCourse[] = profile.courses.map((course) => ({
+    id: course.id,
+    slug: courseSlug(`${course.courseNumber} ${course.name}`),
+    name: course.name,
+    courseNumber: course.courseNumber,
+    headline: course.headline,
+    semester: course.semester,
+    projectIds: course.projects.map((project) => project.id),
+  }));
+
   const courseLabels = new Map(
-    profile.courses.map((course) => [
+    courses.map((course) => [
       course.id,
       `${course.courseNumber} · ${course.name}`,
     ]),
@@ -122,12 +207,14 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
   ];
 
   const skillsById = new Map<string, ReferenceSkill>();
+  const skillSlug = uniqueSlugger();
   const collectSkills = (entries: { skills: Skill[] }[]) => {
     for (const entry of entries) {
       for (const skill of entry.skills) {
         if (skillsById.has(skill.id)) continue;
         skillsById.set(skill.id, {
           id: skill.id,
+          slug: skillSlug(skill.name),
           name: skill.name,
           iconUrl: skillIconUrl(skill),
         });
@@ -137,9 +224,13 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
   collectSkills(allProjects);
   collectSkills(profile.experiences);
 
+  const projectSlug = uniqueSlugger();
+  const experienceSlug = uniqueSlugger();
+
   return {
     projects: allProjects.map((project) => ({
       id: project.id,
+      slug: projectSlug(project.name),
       name: project.name,
       headline: project.headline,
       dateRange: formatDateRange(project.startDate, project.endDate),
@@ -155,9 +246,11 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
       courseLabel: project.courseId
         ? (courseLabels.get(project.courseId) ?? null)
         : null,
+      courseId: project.courseId,
     })),
     experiences: profile.experiences.map((experience) => ({
       id: experience.id,
+      slug: experienceSlug(`${experience.title} ${experience.companyName}`),
       companyName: experience.companyName,
       title: experience.title,
       headline: experience.headline,
@@ -165,8 +258,19 @@ export function buildReferenceIndex(profile: ProfileData): MatchReferenceIndex {
       bullets: experience.bullets,
       skillIds: experience.skills.map((skill) => skill.id),
     })),
+    courses,
     skills: [...skillsById.values()],
   };
+}
+
+/** An entry of any kind, alongside the kind it is. */
+export interface ResolvedEntry {
+  kind: ReferenceKind;
+  id: string;
+  slug: string;
+  /** How the entry names itself in a tab or a heading. */
+  title: string;
+  iconUrl: string | null;
 }
 
 /**
@@ -177,12 +281,36 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
   const projectsById = new Map(index.projects.map((p) => [p.id, p]));
   const skillsById = new Map(index.skills.map((s) => [s.id, s]));
   const experiencesById = new Map(index.experiences.map((e) => [e.id, e]));
+  const coursesById = new Map(index.courses.map((c) => [c.id, c]));
+
   const projectsByName = new Map(
     index.projects.map((p) => [normalizeKey(p.name), p]),
   );
   const skillsByName = new Map(
     index.skills.map((s) => [normalizeKey(s.name), s]),
   );
+  const experiencesByName = new Map(
+    index.experiences.flatMap((e) => [
+      [normalizeKey(e.title), e] as const,
+      [normalizeKey(`${e.title} at ${e.companyName}`), e] as const,
+    ]),
+  );
+  // Courses answer to their number ("CS 4120"), their name, and both.
+  const coursesByName = new Map(
+    index.courses.flatMap((c) => [
+      [normalizeKey(c.courseNumber), c] as const,
+      [normalizeKey(c.name), c] as const,
+      [normalizeKey(`${c.courseNumber} ${c.name}`), c] as const,
+    ]),
+  );
+
+  const bySlug: Record<ReferenceKind, Map<string, { id: string }>> = {
+    project: new Map(index.projects.map((p) => [p.slug, p])),
+    experience: new Map(index.experiences.map((e) => [e.slug, e])),
+    course: new Map(index.courses.map((c) => [c.slug, c])),
+    skill: new Map(index.skills.map((s) => [s.slug, s])),
+  };
+
   const projectSkillSets = new Map(
     index.projects.map((p) => [p.id, new Set(p.skillIds)]),
   );
@@ -197,6 +325,58 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
 
   function experience(id: string): ReferenceExperience | null {
     return experiencesById.get(id) ?? null;
+  }
+
+  function course(id: string): ReferenceCourse | null {
+    return coursesById.get(id) ?? null;
+  }
+
+  /** Kind-agnostic lookup, for tabs and links that only carry a target. */
+  function entry(target: ReferenceTarget): ResolvedEntry | null {
+    switch (target.kind) {
+      case "project": {
+        const found = projectsById.get(target.id);
+        return found
+          ? { kind: "project", id: found.id, slug: found.slug, title: found.name, iconUrl: null }
+          : null;
+      }
+      case "experience": {
+        const found = experiencesById.get(target.id);
+        return found
+          ? { kind: "experience", id: found.id, slug: found.slug, title: found.title, iconUrl: null }
+          : null;
+      }
+      case "course": {
+        const found = coursesById.get(target.id);
+        return found
+          ? {
+              kind: "course",
+              id: found.id,
+              slug: found.slug,
+              title: found.courseNumber,
+              iconUrl: null,
+            }
+          : null;
+      }
+      case "skill": {
+        const found = skillsById.get(target.id);
+        return found
+          ? {
+              kind: "skill",
+              id: found.id,
+              slug: found.slug,
+              title: found.name,
+              iconUrl: found.iconUrl,
+            }
+          : null;
+      }
+    }
+  }
+
+  /** Resolve a URL segment back to a target, for entry routes. */
+  function fromSlug(kind: ReferenceKind, slug: string): ReferenceTarget | null {
+    const found = bySlug[kind].get(slug);
+    return found ? { kind, id: found.id } : null;
   }
 
   /** Split prose into plain text and resolved reference segments. */
@@ -222,10 +402,15 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
 
       const name = rawName.trim();
       const label = rawLabel?.trim() || name;
+      const key = normalizeKey(name);
       const target =
         kind === "project"
-          ? projectsByName.get(normalizeKey(name))
-          : skillsByName.get(normalizeKey(name));
+          ? projectsByName.get(key)
+          : kind === "skill"
+            ? skillsByName.get(key)
+            : kind === "course"
+              ? coursesByName.get(key)
+              : experiencesByName.get(key);
 
       // Unresolved tokens read as plain prose rather than leaking syntax.
       if (!target) {
@@ -296,13 +481,47 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     };
   }
 
+  /** Projects a course produced. */
+  function courseProjects(courseId: string): ReferenceProject[] {
+    return index.projects.filter((project) => project.courseId === courseId);
+  }
+
+  /**
+   * Skills ranked by how much work is tagged with them.
+   *
+   * Depth of use is the only evidence the profile actually holds, so
+   * "strongest" is measured as the number of roles and projects a skill
+   * appears on — with roles counted double, since shipping something at
+   * a job is a stronger signal than using it once in a project.
+   */
+  function rankedSkills(): { skill: ReferenceSkill; usage: SkillUsage; score: number }[] {
+    return index.skills
+      .map((skill) => {
+        const usage = workUsingSkill(skill.id);
+        return {
+          skill,
+          usage,
+          score: usage.experiences.length * 2 + usage.projects.length,
+        };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort(
+        (a, b) => b.score - a.score || a.skill.name.localeCompare(b.skill.name),
+      );
+  }
+
   return {
     project,
     skill,
     experience,
+    course,
+    entry,
+    fromSlug,
     parse,
     similarProjects,
     workUsingSkill,
+    courseProjects,
+    rankedSkills,
   };
 }
 

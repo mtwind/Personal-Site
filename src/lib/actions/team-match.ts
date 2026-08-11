@@ -57,7 +57,8 @@ export async function saveTeamMatchPage(
       .update(teamMatchPage)
       .set({ ...parsed.data, resumeUrl, updatedAt: new Date() })
       .where(eq(teamMatchPage.id, row.id));
-    revalidatePath(`/match/${row.slug}`);
+    // Layout scope: every entry and section page lives under it.
+    revalidatePath(`/match/${row.slug}`, "layout");
   });
 }
 

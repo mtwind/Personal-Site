@@ -141,6 +141,15 @@ const KIND_INTENT: Record<string, ReferenceKind> = {
   worked: "experience",
   working: "experience",
 
+  class: "course",
+  classes: "course",
+  course: "course",
+  courses: "course",
+  coursework: "course",
+  studied: "course",
+  studying: "course",
+  took: "course",
+
   build: "project",
   built: "project",
   project: "project",
@@ -317,7 +326,8 @@ function scoreFields(fields: Field[], terms: string[]) {
 const KIND_ORDER: Record<ReferenceKind, number> = {
   experience: 0,
   project: 1,
-  skill: 2,
+  course: 2,
+  skill: 3,
 };
 
 /**
@@ -395,6 +405,37 @@ export function searchReferences(
         note: [experience.companyName, experience.dateRange]
           .filter(Boolean)
           .join(" · "),
+        score: ranked,
+        matched,
+      });
+    }
+  }
+
+  for (const [ordinal, course] of index.courses.entries()) {
+    const projectNames = index.projects
+      .filter((project) => project.courseId === course.id)
+      .map((project) => project.name);
+    const fields: Field[] = [
+      { text: course.name, weight: WEIGHT.name },
+      { text: course.courseNumber, weight: WEIGHT.name },
+      { text: course.headline, weight: WEIGHT.headline },
+      ...projectNames.map((text) => ({ text, weight: WEIGHT.bullet })),
+    ];
+    const { score, matched } = scoreFields(fields, terms);
+    const ranked = rank("course", score, ordinal);
+    if (ranked > 0) {
+      hits.push({
+        target: { kind: "course", id: course.id },
+        title: `${course.courseNumber} · ${course.name}`,
+        headline: course.headline,
+        note: [
+          course.semester,
+          projectNames.length > 0
+            ? `${projectNames.length} project${projectNames.length === 1 ? "" : "s"}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
         score: ranked,
         matched,
       });

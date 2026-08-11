@@ -1,48 +1,52 @@
-import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
 import { notFound } from "next/navigation";
 
-import { MatchPageClient } from "@/components/match/match-page";
+import { HomeView } from "@/components/match/home-view";
+import { MatchEditorForm } from "@/components/match/match-editor-form";
 import { getAuthState } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
-import { buildReferenceIndex } from "@/lib/match-references";
-import { getProfileData } from "@/lib/profile-data";
-import { getTeamMatchPage } from "@/lib/team-match-data";
+import { getMatchContext } from "@/lib/match-index";
 
-/** Roboto: the authentic Google typeface for this page only. */
-const roboto = Roboto({
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-});
-
-/** Hidden page: reachable only by exact slug, never indexed or linked. */
-export const metadata: Metadata = {
-  title: "Team Matching",
-  robots: { index: false, follow: false },
-};
-
-export default async function MatchPage(props: PageProps<"/match/[slug]">) {
-  const { slug } = await props.params;
-  const [page, auth, profile] = await Promise.all([
-    getTeamMatchPage(),
+/**
+ * The page a visit starts on. The search lives here — a query is
+ * `?q=`, so it is a real history entry rather than a mode the reader
+ * can't back out of — and so does the way in to every other page.
+ */
+export default async function MatchHome(props: PageProps<"/match/[slug]">) {
+  const [{ slug }, search, context, auth] = await Promise.all([
+    props.params,
+    props.searchParams,
+    getMatchContext(),
     getAuthState(),
-    getProfileData(),
   ]);
 
-  if (!page || page.slug !== slug) notFound();
+  if (!context || context.page.slug !== slug) notFound();
+
+  const { page, contactEmail } = context;
+  const query = typeof search.q === "string" ? search.q.trim() : "";
+
+  // The editor is a mode of the home page rather than a route of its
+  // own: it belongs to no tab, and closing it is a plain link back.
+  if (auth.isEditor && search.edit === "1") {
+    return <MatchEditorForm page={page} referenceIndex={context.index} />;
+  }
+
+  const meetingHref =
+    page.meetingUrl ??
+    (contactEmail
+      ? `mailto:${contactEmail}?subject=Team%20matching%20chat`
+      : null);
 
   return (
-    <MatchPageClient
-      page={page}
-      isEditor={auth.isEditor}
-      ownerName={profile.about?.name ?? "Matthew Wind"}
-      contactEmail={profile.contact?.email ?? null}
-      referenceIndex={buildReferenceIndex(profile)}
+    <HomeView
+      query={query}
       // Whether the overview can answer at all. Deciding here rather than
       // in the browser means an unconfigured site never fires a request
       // that can only come back 503.
       aiEnabled={Boolean(getServerEnv().ANTHROPIC_API_KEY)}
-      fontClass={roboto.className}
+      headline={page.headline}
+      intro={page.intro}
+      resumeUrl={page.resumeUrl}
+      meetingHref={meetingHref}
     />
   );
 }

@@ -52,6 +52,21 @@ export function buildProfileCorpus(
     if (project.repoUrl) lines.push(`  Source: ${project.repoUrl}`);
   }
 
+  if (index.courses.length > 0) {
+    lines.push("", "## Coursework");
+    for (const course of index.courses) {
+      const built = index.projects
+        .filter((project) => project.courseId === course.id)
+        .map((project) => project.name);
+      lines.push(
+        `- [[course:${course.courseNumber}]] ${course.name}` +
+          (course.semester ? ` (${course.semester})` : ""),
+      );
+      if (course.headline) lines.push(`  ${course.headline}`);
+      if (built.length > 0) lines.push(`  Projects: ${built.join(", ")}`);
+    }
+  }
+
   lines.push("", "## Skills");
   for (const skill of index.skills) {
     const projects = index.projects.filter((p) => p.skillIds.includes(skill.id)).length;
@@ -69,7 +84,7 @@ export function buildProfileCorpus(
 /**
  * Instructions. Two things matter more than everything else here: never
  * invent experience, and cite with the page's own token syntax so the
- * citations render as chips that open the reference pane.
+ * citations render as links to those entries' pages.
  */
 export function askInstructions(ownerName: string): string {
   return `You answer questions about ${ownerName} for recruiters and hiring managers, on ${ownerName}'s own team-matching page. You are shown his complete profile below.
@@ -82,6 +97,7 @@ Grounding — this matters more than being helpful:
 Citations — cite entries with these exact tokens, inline:
 - A project: [[project:Exact Project Name]]
 - A skill: [[skill:Exact Skill Name]]
+- A course: [[course:CS 4120]] — the course number, exactly as listed
 Use the name exactly as it appears in the profile. They render as links a reader can click. Cite the entries your answer actually rests on; two or three is usually right, and do not cite the same one twice.
 
 Style:
