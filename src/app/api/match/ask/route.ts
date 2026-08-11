@@ -18,10 +18,13 @@ import { getTeamMatchPage } from "@/lib/team-match-data";
 const MODEL = "claude-opus-5";
 
 /**
- * A search overview is a few sentences. Capping output keeps a runaway
- * generation from turning one question into a large bill.
+ * The cap covers thinking *and* the visible answer together, and Opus 5
+ * thinks by default. A budget sized for the two or three sentences the
+ * reader sees gets spent entirely on reasoning, and the request completes
+ * with zero text — a card that loads and then vanishes. Leave real room:
+ * the answer is short, so the extra ceiling is almost never reached.
  */
-const MAX_TOKENS = 700;
+const MAX_TOKENS = 4000;
 
 /**
  * Streaming answer endpoint for the team-matching search bar.
@@ -126,11 +129,20 @@ export async function POST(request: Request) {
         const final = await message.finalMessage();
         controller.close();
 
+        if (answer.trim().length === 0) {
+          console.error(
+            `ask produced no text (stop_reason: ${final.stop_reason}, ` +
+              `output_tokens: ${final.usage.output_tokens})`,
+          );
+        }
+
         await logAsk({
           query,
           ipHash,
-          outcome: "ok",
-          answer,
+          // Record the stop reason in place of the answer so a silent
+          // empty response is diagnosable from the ledger alone.
+          outcome: answer.trim() ? "ok" : "empty",
+          answer: answer.trim() || `[no text — ${final.stop_reason}]`,
           model: final.model,
           inputTokens: final.usage.input_tokens,
           outputTokens: final.usage.output_tokens,
