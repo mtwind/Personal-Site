@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 import { saveTeamMatchPage } from "@/lib/actions/team-match";
@@ -14,6 +15,7 @@ import {
   SubmitButton,
   inputClass,
 } from "@/components/edit/form-fields";
+import { useMatch } from "./match-shell";
 
 interface SectionRow {
   key: number;
@@ -24,15 +26,12 @@ interface SectionRow {
 interface MatchEditorFormProps {
   page: TeamMatchPage;
   referenceIndex: MatchReferenceIndex;
-  onClose: () => void;
 }
 
 /** Editor-only form for the hidden page, incl. its own résumé upload. */
-export function MatchEditorForm({
-  page,
-  referenceIndex,
-  onClose,
-}: MatchEditorFormProps) {
+export function MatchEditorForm({ page, referenceIndex }: MatchEditorFormProps) {
+  const { base } = useMatch();
+  const router = useRouter();
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     saveTeamMatchPage,
     null,
@@ -44,8 +43,8 @@ export function MatchEditorForm({
   const [resumeName, setResumeName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state?.ok) onClose();
-  }, [state, onClose]);
+    if (state?.ok) router.push(base);
+  }, [state, router, base]);
 
   function updateSection(key: number, patch: Partial<SectionRow>) {
     setSections((current) =>
@@ -86,6 +85,14 @@ export function MatchEditorForm({
       </Field>
 
       <ReferenceHelp index={referenceIndex} />
+
+      <p className="font-sans text-xs text-(--dim)">
+        Each section below is its own page, at{" "}
+        <span className="font-mono">/match/{page.slug}/&lt;title&gt;</span>, and
+        gets a card on the home page. A section titled{" "}
+        <span className="font-medium">My Strongest Skills</span> also lists your
+        tagged skills automatically, ranked by how much work uses them.
+      </p>
 
       <Field label="Sections" htmlFor="sections">
         <input type="hidden" name="sections" value={sectionsJson} />
@@ -215,7 +222,7 @@ export function MatchEditorForm({
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">
         <SubmitButton>Save page</SubmitButton>
-        <CancelButton onClick={onClose} />
+        <CancelButton onClick={() => router.push(base)} />
       </div>
     </form>
   );
@@ -236,8 +243,8 @@ function ReferenceHelp({ index }: { index: MatchReferenceIndex }) {
       </summary>
       <div className="mt-3 space-y-3">
         <p>
-          Mention a project or skill by name and readers can open it in a
-          side pane without leaving the page:
+          Mention a project, skill or course by name and it becomes a link
+          to that entry&apos;s own page:
         </p>
         <ul className="space-y-1">
           <li>
@@ -245,6 +252,9 @@ function ReferenceHelp({ index }: { index: MatchReferenceIndex }) {
           </li>
           <li>
             <code className="font-mono">[[skill:C]]</code>
+          </li>
+          <li>
+            <code className="font-mono">[[course:CS 4120]]</code>
           </li>
           <li>
             <code className="font-mono">
@@ -256,6 +266,10 @@ function ReferenceHelp({ index }: { index: MatchReferenceIndex }) {
         <ReferenceNameList
           label="Projects"
           names={index.projects.map((project) => project.name)}
+        />
+        <ReferenceNameList
+          label="Courses"
+          names={index.courses.map((course) => course.courseNumber)}
         />
         <ReferenceNameList
           label="Skills"

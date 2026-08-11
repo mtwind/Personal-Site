@@ -2,8 +2,9 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
-import type { ReferenceResolver, ReferenceTarget } from "@/lib/match-references";
+import type { ReferenceResolver } from "@/lib/match-references";
 import { ReferenceChip } from "./match-rich-text";
+import { useMatch } from "./match-shell";
 
 type Phase = "loading" | "streaming" | "done" | "failed";
 
@@ -68,10 +69,19 @@ function withoutPartialToken(text: string): string {
   return close === -1 ? text.slice(0, open) : text;
 }
 
+/**
+ * Answered threads, kept for the life of the page.
+ *
+ * Following a citation is a real navigation now, so coming back to the
+ * results would otherwise re-ask the question — re-running the model,
+ * re-typing the answer, and spending another slice of the visitor's rate
+ * limit to arrive at the same paragraph. A thread that has been answered
+ * once is restored whole and instantly.
+ */
+const answeredThreads = new Map<string, Turn[]>();
+
 interface OverviewProps {
   query: string;
-  resolver: ReferenceResolver;
-  onOpen: (target: ReferenceTarget) => void;
 }
 
 /**
@@ -91,9 +101,15 @@ export function MatchAiOverview(props: OverviewProps) {
   return <Conversation key={props.query} {...props} />;
 }
 
-function Conversation({ query, resolver, onOpen }: OverviewProps) {
-  const [turns, setTurns] = useState<Turn[]>([{ question: query, answer: "" }]);
-  const [phase, setPhase] = useState<Phase>("loading");
+function Conversation({ query }: OverviewProps) {
+  const { resolver } = useMatch();
+  const restored = answeredThreads.get(query);
+  const [turns, setTurns] = useState<Turn[]>(
+    () => restored ?? [{ question: query, answer: "" }],
+  );
+  const [phase, setPhase] = useState<Phase>(restored ? "done" : "loading");
+  // A restored thread is already read; it appears rather than types.
+  const [instant, setInstant] = useState(restored !== undefined);
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
@@ -110,8 +126,12 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
 
     (async () => {
       // Everything before the turn being answered is prior context.
+      const pending = turnsRef.current[turnsRef.current.length - 1];
+      // Restored from the cache — the answer is already in hand.
+      if (pending.answer) return;
+
       const history = turnsRef.current.slice(0, -1);
-      const question = turnsRef.current[turnsRef.current.length - 1].question;
+      const question = pending.question;
 
       try {
         const response = await fetch("/api/match/ask", {
@@ -158,6 +178,14 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
 
         if (received.trim()) {
           setPhase("done");
+          answeredThreads.set(
+            query,
+            turnsRef.current.map((turn, index) =>
+              index === turnsRef.current.length - 1
+                ? { ...turn, answer: received }
+                : turn,
+            ),
+          );
         } else {
           if (turnsRef.current.length > 1) {
             setNotice("Couldn't answer that one. Try rephrasing?");
@@ -176,11 +204,12 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
     return () => controller.abort();
     // Appending a turn is the signal to fetch; the question itself is
     // read from the ref so streaming updates don't re-trigger this.
-  }, [pendingIndex]);
+  }, [pendingIndex, query]);
 
   function askFollowUp(question: string) {
     setNotice(null);
     setPhase("loading");
+    setInstant(false);
     setTurns((prev) => [...prev, { question, answer: "" }]);
   }
 
@@ -222,8 +251,8 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
             key={index}
             text={turn.answer}
             live={index === visible.length - 1 && busy}
+            instant={instant}
             resolver={resolver}
-            onOpen={onOpen}
           />
         </div>
       ))}
@@ -273,13 +302,14 @@ function Conversation({ query, resolver, onOpen }: OverviewProps) {
 function Answer({
   text,
   live,
+  instant,
   resolver,
-  onOpen,
 }: {
   text: string;
   live: boolean;
+  /** Skip the reveal — the thread was restored, not generated just now. */
+  instant: boolean;
   resolver: ReferenceResolver;
-  onOpen: (target: ReferenceTarget) => void;
 }) {
   const [shown, setShown] = useState(0);
 
@@ -318,8 +348,9 @@ function Answer({
 
     // Motion is the whole point here, so a reader who asked for less of
     // it gets the text immediately.
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")
-      .matches;
+    const reduce =
+      instant ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
     const tick = (now: number) => {
       const available = totalRef.current;
@@ -363,6 +394,8 @@ function Answer({
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
+    // Reveal settings are read once; `instant` is fixed for this answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const revealing = shown < total || live;
@@ -387,7 +420,7 @@ function Answer({
           key={index}
           label={label}
           partial={label.length < segment.label.length}
-          onOpen={() => onOpen({ kind: segment.kind, id: segment.id })}
+          target={{ kind: segment.kind, id: segment.id }}
         />,
       );
     }
@@ -399,7 +432,7 @@ function Answer({
       {revealing ? (
         <span
           aria-hidden
-          className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.18em] bg-[#1a73e8] [animation:pane-fade_1s_ease-in-out_infinite_alternate]"
+          className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.18em] bg-[#1a73e8] [animation:match-blink_1s_ease-in-out_infinite_alternate]"
         />
       ) : null}
     </p>
