@@ -362,3 +362,32 @@ export function parseAdForm(formData: FormData) {
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";
 }
+
+/**
+ * One "people also ask" row.
+ *
+ * The answer may be empty: writing the question down is often the first
+ * step, and a half-filled block the editor can see is more useful than
+ * one that refused to save.
+ */
+export const questionSchema = z.object({
+  id: z.uuid().nullable(),
+  question: z.string().trim().min(1, "Write the question").max(200),
+  answer: z.string().trim().max(2000),
+  keywords: z.array(z.string().trim().min(1).max(60)).max(20),
+  sortOrder: z.number().int().min(0).max(999),
+  active: z.boolean(),
+});
+
+export type QuestionInput = z.infer<typeof questionSchema>;
+
+export function parseQuestionForm(formData: FormData) {
+  return questionSchema.safeParse({
+    id: emptyToNull(formData.get("id")),
+    question: requiredString(formData.get("question")),
+    answer: requiredString(formData.get("answer")),
+    keywords: tagList(formData.get("keywords")),
+    sortOrder: Number(formData.get("sortOrder") ?? 0) || 0,
+    active: formData.get("active") === "on",
+  });
+}

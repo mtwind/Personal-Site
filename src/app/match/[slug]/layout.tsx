@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import { notFound } from "next/navigation";
 
-import { AdRail } from "@/components/match/match-ads";
+import { MatchRail } from "@/components/match/match-rail";
 import { MatchShell } from "@/components/match/match-shell";
 import { getActiveAds } from "@/lib/ads";
 import { getAuthState } from "@/lib/auth";
@@ -40,6 +40,7 @@ export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
       base={matchBase(slug)}
       index={context.index}
       ownerName={context.ownerName}
+      owner={context.owner}
       homeTitle={context.page.headline || "Team Matching"}
       isEditor={auth.isEditor}
       fontClass={roboto.className}
@@ -49,7 +50,7 @@ export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
       // key is what stops React warning about it — an element built here
       // and rendered beside `children` over there arrives without the
       // marking a client-side sibling would have had.
-      rail={<AdRail key="ad-rail" />}
+      rail={<MatchRail key="match-rail" />}
     >
       {props.children}
     </MatchShell>

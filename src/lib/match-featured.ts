@@ -14,15 +14,18 @@
  * Pure and client-safe: the same shape the search results render from,
  * built without a query.
  */
-import { markdownLeadText } from "@/lib/match-markdown";
 import {
   KIND_SEGMENT,
   type MatchReferenceIndex,
   type ReferenceKind,
-  type ReferenceResolver,
   type ReferenceTarget,
 } from "@/lib/match-references";
-import { pageJumpLinks, type SearchJumpLink } from "@/lib/match-search";
+import {
+  pageJumpLinks,
+  summaryIndex,
+  summaryKey,
+  type SearchJumpLink,
+} from "@/lib/match-search";
 
 /** One row as it is stored on the page. */
 export interface FeaturedEntry {
@@ -45,9 +48,6 @@ export interface FeaturedResult {
   /** A page's own headings, offered as links into it. */
   jumps: SearchJumpLink[];
 }
-
-/** How much of a page's prose stands in for a description. */
-const SNIPPET_CHARS = 180;
 
 function isReferenceKind(value: string): value is ReferenceKind {
   return value in KIND_SEGMENT;
@@ -78,92 +78,6 @@ export function parseFeatured(value: unknown): FeaturedEntry[] {
       },
     ];
   });
-}
-
-/**
- * How an entry describes itself when the listing doesn't override it.
- *
- * Deliberately the same description the search results use, so a project
- * reads the same whether it was searched for or featured.
- */
-function describe(
-  resolver: ReferenceResolver,
-  entry: FeaturedEntry,
-): Omit<FeaturedResult, "target"> | null {
-  switch (entry.kind) {
-    case "project": {
-      const project = resolver.project(entry.id);
-      if (!project) return null;
-      return {
-        title: project.name,
-        note: project.courseLabel ?? project.dateRange,
-        snippet: project.headline,
-        jumps: [],
-      };
-    }
-    case "experience": {
-      const experience = resolver.experience(entry.id);
-      if (!experience) return null;
-      return {
-        title: experience.title,
-        note:
-          [experience.companyName, experience.dateRange]
-            .filter(Boolean)
-            .join(" · ") || null,
-        snippet: experience.headline,
-        jumps: [],
-      };
-    }
-    case "course": {
-      const course = resolver.course(entry.id);
-      if (!course) return null;
-      const built = resolver.courseProjects(course.id).length;
-      return {
-        title: `${course.courseNumber} · ${course.name}`,
-        note:
-          [
-            course.semester,
-            built > 0 ? `${built} project${built === 1 ? "" : "s"}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || null,
-        snippet: course.headline,
-        jumps: [],
-      };
-    }
-    case "skill": {
-      const skill = resolver.skill(entry.id);
-      if (!skill) return null;
-      const usage = resolver.workUsingSkill(skill.id);
-      const total =
-        usage.experiences.length + usage.projects.length + usage.pages.length;
-      return {
-        title: skill.name,
-        note:
-          total > 0
-            ? `Used across ${total} ${total === 1 ? "entry" : "entries"}`
-            : null,
-        snippet: "",
-        jumps: [],
-      };
-    }
-    case "page": {
-      const page = resolver.page(entry.id);
-      if (!page) return null;
-      const prose = markdownLeadText(page.body);
-      return {
-        title: page.title,
-        note: page.hasDocument ? "Document" : null,
-        snippet:
-          prose.length > SNIPPET_CHARS
-            ? `${prose.slice(0, SNIPPET_CHARS).trimEnd()}…`
-            : prose,
-        // With no query to match against, a page offers its opening
-        // sections — the reader can go straight to the part they want.
-        jumps: pageJumpLinks(page, []),
-      };
-    }
-  }
 }
 
 /** One thing the home page could feature, as the picker lists it. */
@@ -220,20 +134,41 @@ export function featureCandidates(
   ];
 }
 
-/** The rows to render, in the order they were arranged. */
+/**
+ * The rows to render, in the order they were arranged.
+ *
+ * Every row describes itself exactly as the search results would — same
+ * titles, same notes, same descriptions — because featuring an entry and
+ * finding it by searching are two routes to one claim. What the listing
+ * adds is the order, and the option to say it differently here.
+ */
 export function resolveFeatured(
-  resolver: ReferenceResolver,
+  index: MatchReferenceIndex,
   entries: FeaturedEntry[],
 ): FeaturedResult[] {
+  const summaries = summaryIndex(index);
+
   return entries.flatMap((entry) => {
-    const described = describe(resolver, entry);
-    if (!described) return [];
+    const target = { kind: entry.kind, id: entry.id };
+    const summary = summaries.get(summaryKey(target));
+    // An entry deleted since it was featured drops out rather than
+    // rendering as a row that leads nowhere.
+    if (!summary) return [];
+
+    const page =
+      entry.kind === "page"
+        ? index.pages.find((candidate) => candidate.id === entry.id)
+        : undefined;
+
     return [
       {
-        target: { kind: entry.kind, id: entry.id },
-        ...described,
-        title: entry.title ?? described.title,
-        snippet: entry.snippet ?? described.snippet,
+        target,
+        title: entry.title ?? summary.title,
+        note: summary.note,
+        snippet: entry.snippet ?? summary.headline,
+        // With no query to match against, a page offers its opening
+        // sections — the reader can go straight to the part they want.
+        jumps: page ? pageJumpLinks(page, []) : [],
       },
     ];
   });

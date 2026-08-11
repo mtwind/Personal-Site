@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { parseFeatured } from "@/lib/match-featured";
+import { buildMatchOwner } from "@/lib/match-owner";
 import {
   buildReferenceIndex,
   createReferenceResolver,
@@ -38,6 +39,7 @@ export const getMatchContext = cache(async () => {
     resolver: createReferenceResolver(index),
     featured: parseFeatured(page.featured),
     ownerName: profile.about?.name ?? "Matthew Wind",
+    owner: buildMatchOwner(profile, page),
     contactEmail: profile.contact?.email ?? null,
   };
 });

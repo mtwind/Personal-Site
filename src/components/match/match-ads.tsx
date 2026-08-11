@@ -1,20 +1,12 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import {
   adIconUrl,
   DEFAULT_AD_INFO,
   planAds,
-  RAIL_LIMIT,
   type Ad,
   type AdPlan,
   type AdSlot,
@@ -99,12 +91,12 @@ function slotIsVisible(slot: AdSlot): boolean {
  * while navigating somewhere new is counted afresh.
  */
 function useImpression(ad: Ad | null, slot: AdSlot, view: string): void {
-  const { reportAds } = useMatch();
+  const { isVisitor } = useMatch();
 
   useEffect(() => {
-    if (!ad || !reportAds || !slotIsVisible(slot)) return;
+    if (!ad || !isVisitor || !slotIsVisible(slot)) return;
     report("impression", ad, slot, view);
-  }, [ad, slot, view, reportAds]);
+  }, [ad, slot, view, isVisitor]);
 }
 
 /* ─────────────────────────────── selection ──────────────────────────── */
@@ -228,13 +220,13 @@ function AdLabel({ ad, compact = false }: { ad: Ad; compact?: boolean }) {
 }
 
 /** Everything an ad links out with, in one place. */
-function adLinkProps(ad: Ad, slot: AdSlot, view: string, reportAds: boolean) {
+function adLinkProps(ad: Ad, slot: AdSlot, view: string, isVisitor: boolean) {
   return {
     href: ad.targetUrl,
     target: "_blank",
     rel: "noopener noreferrer sponsored",
     onClick: () => {
-      if (reportAds) report("click", ad, slot, view);
+      if (isVisitor) report("click", ad, slot, view);
     },
   };
 }
@@ -247,7 +239,7 @@ function adLinkProps(ad: Ad, slot: AdSlot, view: string, reportAds: boolean) {
  * above the AI overview because that is where the real thing puts them.
  */
 export function SponsoredResults({ query }: { query: string }) {
-  const { reportAds } = useMatch();
+  const { isVisitor } = useMatch();
   const picks = useAdPlan().sponsored;
   const view = `q:${query}`;
 
@@ -273,7 +265,7 @@ export function SponsoredResults({ query }: { query: string }) {
             </span>
           </div>
           <a
-            {...adLinkProps(ad, "sponsored", view, reportAds)}
+            {...adLinkProps(ad, "sponsored", view, isVisitor)}
             className="mt-1.5 block text-[18px] leading-snug text-[#1a0dab] hover:underline"
           >
             {ad.headline}
@@ -290,34 +282,6 @@ export function SponsoredResults({ query }: { query: string }) {
 }
 
 /**
- * The right-hand column: display ads beside the page, as Google runs
- * them on a wide screen. Hidden outright below the rail breakpoint
- * rather than stacked underneath — a column of ads is the first thing a
- * phone should lose.
- */
-export function AdRail() {
-  const pathname = usePathname();
-  const pool = useAdPlan().rail;
-  const railRef = useRef<HTMLElement>(null);
-  const capacity = useRailCapacity(railRef, pool.length);
-  const picks = pool.slice(0, capacity);
-
-  if (picks.length === 0) return null;
-
-  return (
-    <aside
-      ref={railRef}
-      aria-label="Sponsored"
-      className="sticky top-[7.5rem] hidden w-[300px] shrink-0 space-y-4 min-[1100px]:block"
-    >
-      {picks.map((ad) => (
-        <RailCard key={ad.id} ad={ad} view={pathname} />
-      ))}
-    </aside>
-  );
-}
-
-/**
  * One rail ad, at a fixed height.
  *
  * Uniform cards are what let the column be counted rather than measured
@@ -326,8 +290,8 @@ export function AdRail() {
  * down — which is also how a real display column behaves, since an
  * advertiser doesn't get more space for writing more.
  */
-function RailCard({ ad, view }: { ad: Ad; view: string }) {
-  const { reportAds } = useMatch();
+export function RailCard({ ad, view }: { ad: Ad; view: string }) {
+  const { isVisitor } = useMatch();
 
   // Reported per card rather than per rail: the rail's length depends on
   // the reader's screen, and an ad that didn't fit was never seen.
@@ -335,6 +299,7 @@ function RailCard({ ad, view }: { ad: Ad; view: string }) {
 
   return (
     <div
+      data-rail-card
       style={{ height: RAIL_CARD_HEIGHT }}
       className="flex flex-col overflow-hidden rounded-2xl border border-[#dadce0] bg-white p-4 transition-shadow duration-300 hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
     >
@@ -351,7 +316,7 @@ function RailCard({ ad, view }: { ad: Ad; view: string }) {
         </span>
       </div>
       <a
-        {...adLinkProps(ad, "rail", view, reportAds)}
+        {...adLinkProps(ad, "rail", view, isVisitor)}
         className="mt-3 line-clamp-2 block text-[15px] leading-snug text-[#1a0dab] hover:underline"
       >
         {ad.headline}
@@ -362,7 +327,7 @@ function RailCard({ ad, view }: { ad: Ad; view: string }) {
         </p>
       ) : null}
       <a
-        {...adLinkProps(ad, "rail", view, reportAds)}
+        {...adLinkProps(ad, "rail", view, isVisitor)}
         className="mt-auto inline-block self-start rounded-full border border-[#dadce0] px-4 py-1.5 text-[13px] font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
       >
         Visit site
@@ -372,74 +337,12 @@ function RailCard({ ad, view }: { ad: Ad; view: string }) {
 }
 
 /** One rail card's height, and the gap between them (`space-y-4`). */
-const RAIL_CARD_HEIGHT = 232;
-const RAIL_GAP = 16;
+export const RAIL_CARD_HEIGHT = 232;
+export const RAIL_GAP = 16;
 
-/** Breathing room under the column when the viewport is what bounds it. */
-const RAIL_FOOT = 24;
-
-/**
- * How many ads the column has room for.
- *
- * Two things bound it, and the smaller wins. The viewport, because the
- * rail is sticky: an ad below the fold of a pinned column is an ad
- * nobody scrolls to. And the content beside it, because a rail taller
- * than the page it accompanies makes the page longer — a profile that
- * ends in five ads reads as an ad break, not a profile.
- *
- * Measured rather than assumed: `top` comes from the sticky offset the
- * class actually applied, and the card height from the card actually
- * rendered, so this stays right if either is restyled.
- */
-function useRailCapacity(
-  railRef: React.RefObject<HTMLElement | null>,
-  poolSize: number,
-): number {
-  // Starts at the number every screen can show, so the server and the
-  // first client render agree; measuring only ever adds to it.
-  const [capacity, setCapacity] = useState(RAIL_LIMIT);
-
-  useLayoutEffect(() => {
-    const rail = railRef.current;
-    if (!rail || poolSize === 0) return;
-
-    const measure = () => {
-      // Below the breakpoint the rail is display:none and measures zero.
-      if (!window.matchMedia(RAIL_QUERY).matches) return;
-
-      const card = rail.firstElementChild?.getBoundingClientRect().height;
-      const unit = (card && card > 0 ? card : RAIL_CARD_HEIGHT) + RAIL_GAP;
-      const top = parseFloat(window.getComputedStyle(rail).top) || 0;
-
-      const content =
-        rail.previousElementSibling?.getBoundingClientRect().height ??
-        Number.POSITIVE_INFINITY;
-      const viewport = window.innerHeight - top - RAIL_FOOT;
-
-      // The last card needs no gap after it, hence the extra one here.
-      const room = Math.min(content, viewport) + RAIL_GAP;
-      const fits = Math.floor(room / unit);
-
-      setCapacity(Math.max(1, Math.min(fits, poolSize)));
-    };
-
-    measure();
-
-    // The content column grows as an AI overview streams in, so this
-    // watches the neighbour rather than only the window.
-    const observer = new ResizeObserver(measure);
-    if (rail.previousElementSibling) {
-      observer.observe(rail.previousElementSibling);
-    }
-    window.addEventListener("resize", measure);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [railRef, poolSize]);
-
-  return capacity;
+/** Every ad eligible for the rail on this view, best first. */
+export function useRailPool(): Ad[] {
+  return useAdPlan().rail;
 }
 
 /**
@@ -448,7 +351,7 @@ function useRailCapacity(
  * than only under a search for one.
  */
 export function AdBanner({ terms }: { terms: string }) {
-  const { reportAds } = useMatch();
+  const { isVisitor } = useMatch();
   const pathname = usePathname();
   const ad = useAdPlan(terms).banner;
 
@@ -465,7 +368,7 @@ export function AdBanner({ terms }: { terms: string }) {
           <span className="text-[12px] text-[#5f6368]">{ad.displayUrl}</span>
         </div>
         <a
-          {...adLinkProps(ad, "banner", pathname, reportAds)}
+          {...adLinkProps(ad, "banner", pathname, isVisitor)}
           className="mt-0.5 block text-[16px] leading-snug text-[#1a0dab] hover:underline"
         >
           {ad.headline}

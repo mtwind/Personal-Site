@@ -33,17 +33,30 @@ export interface SearchJumpLink {
   snippet: string;
 }
 
-/** A ranked search result, ready to render and to open in the pane. */
-export interface SearchHit {
+/**
+ * How an entry names and situates itself, independent of any query.
+ *
+ * One definition, three readers: the search results, the home page's
+ * featured listing, and the suggestion dropdown. They have to agree —
+ * an entry that is called one thing in a suggestion and another in the
+ * result it leads to reads as two different entries.
+ */
+export interface EntrySummary {
   target: ReferenceTarget;
   title: string;
-  /** One-line description, when the entry has an authored headline. */
-  headline: string;
   /** Company, dates, or course — whatever situates the entry. */
   note: string | null;
+  /** One-line description, when the entry has one to give. */
+  headline: string;
+}
+
+/** A ranked search result, ready to render and to open in the pane. */
+export interface SearchHit extends EntrySummary {
   score: number;
   /** Query terms this entry actually matched, for result highlighting. */
   matched: string[];
+  /** Which fields those terms hit — what "About this result" explains. */
+  why: string[];
   /** Sections of the entry the reader can land on directly. */
   jumps: SearchJumpLink[];
 }
@@ -208,45 +221,138 @@ const KIND_INTENT: Record<string, ReferenceKind> = {
   tools: "skill",
 };
 
+/**
+ * What `kind:` accepts, in the spellings someone would actually type.
+ *
+ * Separate from `KIND_INTENT` on purpose: intent is a guess drawn from
+ * how a question is phrased, and this is an instruction. "Jobs" hints;
+ * `kind:jobs` insists.
+ */
+const KIND_FILTER: Record<string, ReferenceKind> = {
+  class: "course",
+  classes: "course",
+  course: "course",
+  courses: "course",
+  coursework: "course",
+  experience: "experience",
+  experiences: "experience",
+  job: "experience",
+  jobs: "experience",
+  note: "page",
+  notes: "page",
+  page: "page",
+  pages: "page",
+  project: "project",
+  projects: "project",
+  role: "experience",
+  roles: "experience",
+  skill: "skill",
+  skills: "skill",
+  tool: "skill",
+  tools: "skill",
+};
+
+/** Every kind a filter can name, for the UI that offers them. */
+export const FILTER_KINDS: ReferenceKind[] = [
+  "page",
+  "experience",
+  "project",
+  "course",
+  "skill",
+];
+
 /** Base score for a pure-intent query, counted down to preserve order. */
 const INTENT_BASE = 1000;
 
 export interface ParsedQuery {
-  /** Content terms to score against entry text. */
+  /** Content terms to score against entry text, phrases included. */
   terms: string[];
-  /** The kind the phrasing asks for, when the phrasing asks for one. */
+  /** Quoted phrases, which an entry must contain to qualify at all. */
+  phrases: string[];
+  /** `-terms`, which disqualify an entry that contains them. */
+  excluded: string[];
+  /** The kind the phrasing *suggests*, which sorts rather than filters. */
   wantedKind: ReferenceKind | null;
+  /** The kind `kind:` *demanded*, which filters outright. */
+  requiredKind: ReferenceKind | null;
+}
+
+/** Split text into scoreable words, keeping short technical names. */
+function words(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9+#.]+/)
+    .map((term) => term.replace(/^[.]+|[.]+$/g, ""))
+    .filter((term) => term.length > 0);
 }
 
 /**
  * Split a query into the kind it asks for and the terms to score.
  *
- * Intent words are pulled out of the term list rather than scored: in
- * "what Rust projects has he built", the answer is ranked on "rust", and
- * "projects"/"built" say which kind of entry should win a tie.
+ * Operators come out first, because they are instructions about the
+ * search rather than things to search for: a quoted phrase must appear,
+ * a `-term` must not, and `kind:` narrows to one sort of entry. What is
+ * left goes through the ordinary reading, where intent words are pulled
+ * out rather than scored — in "what Rust projects has he built", the
+ * answer is ranked on "rust", and "projects"/"built" only say which kind
+ * of entry should win a tie.
  */
 export function parseQuery(query: string): ParsedQuery {
-  const words = query
-    .toLowerCase()
-    .split(/[^a-z0-9+#.]+/)
-    .map((term) => term.replace(/^[.]+|[.]+$/g, ""))
-    .filter((term) => term.length > 0);
+  const phrases: string[] = [];
+  // Quoted runs are lifted out whole so their spaces survive tokenising.
+  const withoutPhrases = query.replace(/"([^"]*)"/g, (_, inner: string) => {
+    const phrase = inner.trim().toLowerCase();
+    if (phrase) phrases.push(phrase);
+    return " ";
+  });
+
+  const excluded: string[] = [];
+  let requiredKind: ReferenceKind | null = null;
+
+  const rest = withoutPhrases
+    .split(/\s+/)
+    .filter((token) => {
+      const lower = token.toLowerCase();
+
+      const filter = /^(?:kind|type):(.+)$/.exec(lower);
+      if (filter) {
+        requiredKind = KIND_FILTER[filter[1]] ?? requiredKind;
+        return false;
+      }
+
+      if (lower.startsWith("-") && lower.length > 1) {
+        excluded.push(...words(lower.slice(1)));
+        return false;
+      }
+
+      return true;
+    })
+    .join(" ");
+
+  const plain = words(rest);
 
   // First intent word wins; a query rarely asks for two kinds at once.
-  const wantedKind = words.map((w) => KIND_INTENT[w]).find(Boolean) ?? null;
+  const wantedKind = plain.map((w) => KIND_INTENT[w]).find(Boolean) ?? null;
 
-  // Keep short technical names (C, Go, C++) but drop filler and intent words.
-  const kept = words.filter(
+  const kept = plain.filter(
     (term) => !STOPWORDS.has(term) && !(term in KIND_INTENT),
   );
-  if (kept.length > 0) return { terms: [...new Set(kept)], wantedKind };
 
-  // Nothing but filler and intent. With an intent, the kind is the whole
-  // answer; without one, fall back to scoring the raw words so a query of
-  // only stopwords ("what does he do") still returns something.
+  const content = [...new Set([...phrases, ...kept])];
+  if (content.length > 0) {
+    return { terms: content, phrases, excluded, wantedKind, requiredKind };
+  }
+
+  // Nothing but filler and intent. With an intent — or a `kind:` — the
+  // kind is the whole answer; without one, fall back to scoring the raw
+  // words so a query of only stopwords ("what does he do") still returns
+  // something.
   return {
-    terms: wantedKind ? [] : [...new Set(words)],
+    terms: wantedKind || requiredKind ? [] : [...new Set(plain)],
+    phrases,
+    excluded,
     wantedKind,
+    requiredKind,
   };
 }
 
@@ -331,21 +437,30 @@ export function matchRanges(text: string, terms: string[]): [number, number][] {
 interface Field {
   text: string;
   weight: number;
+  /** How "About this result" names this field to a reader. */
+  label: string;
 }
 
 function scoreFields(fields: Field[], terms: string[]) {
   let score = 0;
   const matched: string[] = [];
+  const why = new Set<string>();
 
   for (const term of terms) {
     // A term scores once per entry, at its strongest field.
     let best = 0;
+    let bestLabel = "";
     for (const field of fields) {
-      best = Math.max(best, hitStrength(field.text, term) * field.weight);
+      const strength = hitStrength(field.text, term) * field.weight;
+      if (strength > best) {
+        best = strength;
+        bestLabel = field.label;
+      }
     }
     if (best > 0) {
       score += best;
       matched.push(term);
+      why.add(bestLabel);
     }
   }
 
@@ -353,7 +468,31 @@ function scoreFields(fields: Field[], terms: string[]) {
   // very strongly — "c compiler" should beat a project merely named "C".
   if (matched.length > 1) score *= 1 + 0.25 * (matched.length - 1);
 
-  return { score, matched };
+  return { score, matched, why: [...why] };
+}
+
+/**
+ * Whether an entry survives the query's hard constraints.
+ *
+ * Phrases and exclusions are absolute rather than weighted: someone who
+ * quotes a phrase is telling the search that a result without it is
+ * wrong, and no amount of scoring elsewhere should talk them out of it.
+ */
+function qualifies(fields: Field[], parsed: ParsedQuery): boolean {
+  if (parsed.phrases.length === 0 && parsed.excluded.length === 0) return true;
+
+  const haystack = fields
+    .map((field) => field.text)
+    .join(" \n ")
+    .toLowerCase();
+
+  for (const phrase of parsed.phrases) {
+    if (!haystack.includes(phrase)) return false;
+  }
+  for (const term of parsed.excluded) {
+    if (hitStrength(haystack, term) > 0) return false;
+  }
+  return true;
 }
 
 /**
@@ -373,6 +512,9 @@ const JUMP_LIMIT = 4;
 
 /** How much of a section's prose the jump link shows. */
 const JUMP_SNIPPET_CHARS = 110;
+
+/** How much of a page's prose stands in for a description. */
+const LEAD_CHARS = 180;
 
 /**
  * The sections of a page worth listing under its result.
@@ -412,6 +554,88 @@ export function pageJumpLinks(
   });
 }
 
+/** `kind:id`, for looking a summary up without carrying the object. */
+export function summaryKey(target: ReferenceTarget): string {
+  return `${target.kind}:${target.id}`;
+}
+
+/**
+ * How every entry in the index describes itself.
+ *
+ * In index order within each kind, and with the kinds in the order a
+ * reader most likely wants them — which makes this list serviceable as
+ * a site map wherever no better ordering exists.
+ */
+export function entrySummaries(index: MatchReferenceIndex): EntrySummary[] {
+  const usageCount = (skillId: string): number =>
+    index.projects.filter((p) => p.skillIds.includes(skillId)).length +
+    index.experiences.filter((e) => e.skillIds.includes(skillId)).length +
+    index.pages.filter((p) => p.skillIds.includes(skillId)).length;
+
+  return [
+    ...index.pages.map((page) => ({
+      target: { kind: "page" as const, id: page.id },
+      title: page.title,
+      note: page.hasDocument ? "Document" : null,
+      // A page has no authored headline; its own opening lines stand in.
+      headline: markdownLeadText(page.body).slice(0, LEAD_CHARS),
+    })),
+    ...index.experiences.map((experience) => ({
+      target: { kind: "experience" as const, id: experience.id },
+      title: experience.title,
+      note:
+        [experience.companyName, experience.dateRange]
+          .filter(Boolean)
+          .join(" · ") || null,
+      headline: experience.headline,
+    })),
+    ...index.projects.map((project) => ({
+      target: { kind: "project" as const, id: project.id },
+      title: project.name,
+      note: project.courseLabel ?? project.dateRange,
+      headline: project.headline,
+    })),
+    ...index.courses.map((course) => {
+      const built = index.projects.filter(
+        (project) => project.courseId === course.id,
+      ).length;
+      return {
+        target: { kind: "course" as const, id: course.id },
+        title: `${course.courseNumber} · ${course.name}`,
+        note:
+          [
+            course.semester,
+            built > 0 ? `${built} project${built === 1 ? "" : "s"}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
+        headline: course.headline,
+      };
+    }),
+    ...index.skills.map((skill) => {
+      const used = usageCount(skill.id);
+      return {
+        target: { kind: "skill" as const, id: skill.id },
+        title: skill.name,
+        note:
+          used > 0
+            ? `Used across ${used} ${used === 1 ? "entry" : "entries"}`
+            : null,
+        headline: "",
+      };
+    }),
+  ];
+}
+
+/** Summaries by `kind:id`, for callers holding only a target. */
+export function summaryIndex(
+  index: MatchReferenceIndex,
+): Map<string, EntrySummary> {
+  return new Map(
+    entrySummaries(index).map((summary) => [summaryKey(summary.target), summary]),
+  );
+}
+
 /**
  * Rank everything in the index against a query. Entries matching no term
  * are omitted; an empty query returns nothing rather than everything.
@@ -420,8 +644,9 @@ export function searchReferences(
   index: MatchReferenceIndex,
   query: string,
 ): SearchHit[] {
-  const { terms, wantedKind } = parseQuery(query);
-  if (terms.length === 0 && !wantedKind) return [];
+  const parsed = parseQuery(query);
+  const { terms, wantedKind, requiredKind } = parsed;
+  if (terms.length === 0 && !wantedKind && !requiredKind) return [];
 
   /**
    * Score an entry, handling the pure-intent case.
@@ -433,158 +658,143 @@ export function searchReferences(
    */
   const rank = (kind: ReferenceKind, base: number, ordinal: number): number => {
     if (terms.length === 0) {
-      return kind === wantedKind ? INTENT_BASE - ordinal : 0;
+      const asked = wantedKind ?? requiredKind;
+      return kind === asked ? INTENT_BASE - ordinal : 0;
     }
     return base;
   };
 
+  const summaries = summaryIndex(index);
   const skillNames = new Map(index.skills.map((s) => [s.id, s.name]));
   const hits: SearchHit[] = [];
 
+  /** Everything the loops below share: filter, score, collect. */
+  const consider = (
+    target: ReferenceTarget,
+    ordinal: number,
+    fields: Field[],
+    jumpsFor: (matched: string[]) => SearchJumpLink[] = () => [],
+  ) => {
+    if (requiredKind && target.kind !== requiredKind) return;
+    if (!qualifies(fields, parsed)) return;
+
+    const { score, matched, why } = scoreFields(fields, terms);
+    const ranked = rank(target.kind, score, ordinal);
+    if (ranked <= 0) return;
+
+    const summary = summaries.get(summaryKey(target));
+    if (!summary) return;
+
+    hits.push({ ...summary, score: ranked, matched, why, jumps: jumpsFor(matched) });
+  };
+
   for (const [ordinal, project] of index.projects.entries()) {
-    const fields: Field[] = [
-      { text: project.name, weight: WEIGHT.name },
-      { text: project.headline, weight: WEIGHT.headline },
-      { text: project.courseLabel ?? "", weight: WEIGHT.course },
-      ...project.bullets.map((text) => ({ text, weight: WEIGHT.bullet })),
+    consider({ kind: "project", id: project.id }, ordinal, [
+      { text: project.name, weight: WEIGHT.name, label: "its name" },
+      {
+        text: project.headline,
+        weight: WEIGHT.headline,
+        label: "its description",
+      },
+      {
+        text: project.courseLabel ?? "",
+        weight: WEIGHT.course,
+        label: "the course it came from",
+      },
+      ...project.bullets.map((text) => ({
+        text,
+        weight: WEIGHT.bullet,
+        label: "what it says it did",
+      })),
       ...project.skillIds.map((id) => ({
         text: skillNames.get(id) ?? "",
         weight: WEIGHT.skill,
+        label: "the tools it used",
       })),
-    ];
-    const { score, matched } = scoreFields(fields, terms);
-    const ranked = rank("project", score, ordinal);
-    if (ranked > 0) {
-      hits.push({
-        target: { kind: "project", id: project.id },
-        title: project.name,
-        headline: project.headline,
-        note: project.courseLabel ?? project.dateRange,
-        score: ranked,
-        matched,
-        jumps: [],
-      });
-    }
+    ]);
   }
 
   for (const [ordinal, experience] of index.experiences.entries()) {
-    const fields: Field[] = [
-      { text: experience.title, weight: WEIGHT.name },
-      { text: experience.companyName, weight: WEIGHT.company },
-      { text: experience.headline, weight: WEIGHT.headline },
-      ...experience.bullets.map((text) => ({ text, weight: WEIGHT.bullet })),
+    consider({ kind: "experience", id: experience.id }, ordinal, [
+      { text: experience.title, weight: WEIGHT.name, label: "the job title" },
+      {
+        text: experience.companyName,
+        weight: WEIGHT.company,
+        label: "the company",
+      },
+      {
+        text: experience.headline,
+        weight: WEIGHT.headline,
+        label: "its description",
+      },
+      ...experience.bullets.map((text) => ({
+        text,
+        weight: WEIGHT.bullet,
+        label: "what it says he did",
+      })),
       ...experience.skillIds.map((id) => ({
         text: skillNames.get(id) ?? "",
         weight: WEIGHT.skill,
+        label: "the tools he used",
       })),
-    ];
-    const { score, matched } = scoreFields(fields, terms);
-    const ranked = rank("experience", score, ordinal);
-    if (ranked > 0) {
-      hits.push({
-        target: { kind: "experience", id: experience.id },
-        title: experience.title,
-        headline: experience.headline,
-        note: [experience.companyName, experience.dateRange]
-          .filter(Boolean)
-          .join(" · "),
-        score: ranked,
-        matched,
-        jumps: [],
-      });
-    }
+    ]);
   }
 
   for (const [ordinal, course] of index.courses.entries()) {
     const projectNames = index.projects
       .filter((project) => project.courseId === course.id)
       .map((project) => project.name);
-    const fields: Field[] = [
-      { text: course.name, weight: WEIGHT.name },
-      { text: course.courseNumber, weight: WEIGHT.name },
-      { text: course.headline, weight: WEIGHT.headline },
-      ...projectNames.map((text) => ({ text, weight: WEIGHT.bullet })),
-    ];
-    const { score, matched } = scoreFields(fields, terms);
-    const ranked = rank("course", score, ordinal);
-    if (ranked > 0) {
-      hits.push({
-        target: { kind: "course", id: course.id },
-        title: `${course.courseNumber} · ${course.name}`,
-        headline: course.headline,
-        note: [
-          course.semester,
-          projectNames.length > 0
-            ? `${projectNames.length} project${projectNames.length === 1 ? "" : "s"}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ") || null,
-        score: ranked,
-        matched,
-        jumps: [],
-      });
-    }
+
+    consider({ kind: "course", id: course.id }, ordinal, [
+      { text: course.name, weight: WEIGHT.name, label: "the course name" },
+      {
+        text: course.courseNumber,
+        weight: WEIGHT.name,
+        label: "the course number",
+      },
+      {
+        text: course.headline,
+        weight: WEIGHT.headline,
+        label: "its description",
+      },
+      ...projectNames.map((text) => ({
+        text,
+        weight: WEIGHT.bullet,
+        label: "the projects it produced",
+      })),
+    ]);
   }
 
   for (const [ordinal, page] of index.pages.entries()) {
     // Markdown marks are punctuation to a keyword search: strip them so
     // "**Python**" matches "python" and a heading's `##` scores nothing.
     const prose = markdownToPlainText(page.body);
-    const fields: Field[] = [
-      { text: page.title, weight: WEIGHT.name },
-      ...page.headings.map((heading) => ({
-        text: heading.text,
-        weight: WEIGHT.heading,
-      })),
-      { text: prose, weight: WEIGHT.bullet },
-      ...page.skillIds.map((id) => ({
-        text: skillNames.get(id) ?? "",
-        weight: WEIGHT.skill,
-      })),
-    ];
-    const { score, matched } = scoreFields(fields, terms);
-    const ranked = rank("page", score, ordinal);
-    if (ranked > 0) {
-      hits.push({
-        target: { kind: "page", id: page.id },
-        title: page.title,
-        // The page's own lead stands in for a headline it doesn't have;
-        // its headings are listed under the result rather than spliced
-        // into the description.
-        headline: markdownLeadText(page.body).slice(0, 180),
-        note: page.hasDocument ? "Document" : null,
-        score: ranked,
-        matched,
-        jumps: pageJumpLinks(page, matched),
-      });
-    }
+
+    consider(
+      { kind: "page", id: page.id },
+      ordinal,
+      [
+        { text: page.title, weight: WEIGHT.name, label: "its title" },
+        ...page.headings.map((heading) => ({
+          text: heading.text,
+          weight: WEIGHT.heading,
+          label: "a section heading",
+        })),
+        { text: prose, weight: WEIGHT.bullet, label: "the page text" },
+        ...page.skillIds.map((id) => ({
+          text: skillNames.get(id) ?? "",
+          weight: WEIGHT.skill,
+          label: "the tools it mentions",
+        })),
+      ],
+      (matched) => pageJumpLinks(page, matched),
+    );
   }
 
   for (const [ordinal, skill] of index.skills.entries()) {
-    const { score, matched } = scoreFields(
-      [{ text: skill.name, weight: WEIGHT.skillName }],
-      terms,
-    );
-    const ranked = rank("skill", score, ordinal);
-    if (ranked > 0) {
-      const usedBy =
-        index.projects.filter((p) => p.skillIds.includes(skill.id)).length +
-        index.experiences.filter((e) => e.skillIds.includes(skill.id)).length +
-        index.pages.filter((p) => p.skillIds.includes(skill.id)).length;
-      hits.push({
-        target: { kind: "skill", id: skill.id },
-        title: skill.name,
-        headline: "",
-        note:
-          usedBy > 0
-            ? `Used across ${usedBy} ${usedBy === 1 ? "entry" : "entries"}`
-            : null,
-        score: ranked,
-        matched,
-        jumps: [],
-      });
-    }
+    consider({ kind: "skill", id: skill.id }, ordinal, [
+      { text: skill.name, weight: WEIGHT.skillName, label: "the skill name" },
+    ]);
   }
 
   // When the query names a kind, that kind comes first outright rather
@@ -600,4 +810,133 @@ export function searchReferences(
       KIND_ORDER[a.target.kind] - KIND_ORDER[b.target.kind] ||
       a.title.localeCompare(b.title),
   );
+}
+
+/** A search, and how long it took to run. */
+export interface TimedSearch {
+  hits: SearchHit[];
+  /** Wall-clock seconds, as the results page reports them. */
+  seconds: number;
+}
+
+/**
+ * Run a search and time it.
+ *
+ * The number under the search field is a real measurement rather than a
+ * flourish, which is only defensible if something actually measures it —
+ * and the module that does the work is the one that can.
+ */
+export function timedSearch(
+  index: MatchReferenceIndex,
+  query: string,
+): TimedSearch {
+  const started = performance.now();
+  const hits = query.trim() === "" ? [] : searchReferences(index, query);
+  return { hits, seconds: (performance.now() - started) / 1000 };
+}
+
+/* ───────────────────────────── suggestions ──────────────────────────── */
+
+/** How well a draft matches a title, lower being better. */
+function suggestionRank(title: string, draft: string): number {
+  const haystack = title.toLowerCase();
+  const at = haystack.indexOf(draft);
+  if (at === -1) return Number.POSITIVE_INFINITY;
+  if (at === 0) return 0;
+  // A match at a word boundary reads as a completion; one mid-word doesn't.
+  return /[^a-z0-9]/.test(haystack[at - 1]) ? 1 : 2;
+}
+
+/**
+ * Entries whose titles complete what is being typed.
+ *
+ * Titles only, deliberately. A suggestion list is a claim that the row
+ * *is* what you were about to type, and matching on body text produces
+ * rows that look like non-sequiturs — that job is the results page's,
+ * one keystroke later.
+ */
+export function suggestEntries(
+  index: MatchReferenceIndex,
+  draft: string,
+  limit: number,
+): EntrySummary[] {
+  const needle = draft.trim().toLowerCase();
+  if (needle === "") return [];
+
+  return entrySummaries(index)
+    .map((summary) => ({ summary, rank: suggestionRank(summary.title, needle) }))
+    .filter((row) => Number.isFinite(row.rank))
+    .sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        KIND_ORDER[a.summary.target.kind] - KIND_ORDER[b.summary.target.kind] ||
+        a.summary.title.length - b.summary.title.length ||
+        a.summary.title.localeCompare(b.summary.title),
+    )
+    .slice(0, limit)
+    .map((row) => row.summary);
+}
+
+/* ──────────────────────────── related searches ──────────────────────── */
+
+/** How many related searches to offer under the results. */
+const RELATED_LIMIT = 6;
+
+/**
+ * Searches worth running next, built from what the top results are made
+ * of rather than from a list someone maintains by hand.
+ *
+ * Google's related searches are lateral moves — same subject, different
+ * angle. The same three angles work here: the skills the winning entries
+ * are tagged with, the companies behind them, and the query itself
+ * pointed at a different kind of entry.
+ */
+export function relatedSearches(
+  index: MatchReferenceIndex,
+  query: string,
+  hits: SearchHit[],
+): string[] {
+  const parsed = parseQuery(query);
+  const seen = new Set([query.trim().toLowerCase()]);
+  const out: string[] = [];
+
+  const offer = (candidate: string) => {
+    const key = candidate.trim().toLowerCase();
+    if (key === "" || seen.has(key) || out.length >= RELATED_LIMIT) return;
+    seen.add(key);
+    out.push(candidate);
+  };
+
+  const skillNames = new Map(index.skills.map((s) => [s.id, s.name]));
+  const top = hits.slice(0, 4);
+
+  // The subject, aimed at a different kind of entry.
+  const subject = parsed.terms.find((term) => !term.includes(" "));
+  if (subject) {
+    if (parsed.wantedKind !== "project") offer(`${subject} projects`);
+    if (parsed.wantedKind !== "experience") offer(`${subject} experience`);
+  }
+
+  for (const hit of top) {
+    if (hit.target.kind === "experience") {
+      const experience = index.experiences.find((e) => e.id === hit.target.id);
+      if (experience) offer(experience.companyName);
+    }
+    if (hit.target.kind === "project") {
+      const project = index.projects.find((p) => p.id === hit.target.id);
+      for (const id of project?.skillIds.slice(0, 2) ?? []) {
+        const name = skillNames.get(id);
+        if (name && !parsed.terms.includes(name.toLowerCase())) offer(name);
+      }
+    }
+    if (hit.target.kind === "page") {
+      const page = index.pages.find((p) => p.id === hit.target.id);
+      // A page's own headings are the questions it already answers.
+      for (const heading of page?.headings.slice(0, 2) ?? []) {
+        offer(heading.text);
+      }
+    }
+  }
+
+  return out;
 }

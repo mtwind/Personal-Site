@@ -2,15 +2,16 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  resolveFeatured,
-  type FeaturedEntry,
-} from "@/lib/match-featured";
+import { resolveFeatured, type FeaturedEntry } from "@/lib/match-featured";
+import type { RelatedQuestion } from "@/lib/questions-data";
+import { DoodleMark } from "./doodle-mark";
 import { ExitDialog } from "./exit-dialog";
 import { MatchRichText } from "./match-rich-text";
-import { MatchSearchBar, MatchSearchResults } from "./match-search";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
+import { MatchSearchBar } from "./search-bar";
+import { MatchSearchResults } from "./search-results";
 import { ResultRow } from "./result-row";
+import { ShortcutTiles } from "./shortcut-tiles";
 
 interface HomeViewProps {
   /** The committed search, from `?q=`. Empty means show the profile. */
@@ -20,6 +21,8 @@ interface HomeViewProps {
   intro: string;
   /** The entries picked out for this page, in order. */
   featured: FeaturedEntry[];
+  /** Authored questions, for the block under the results. */
+  questions: RelatedQuestion[];
   resumeUrl: string | null;
   meetingHref: string | null;
 }
@@ -41,28 +44,41 @@ export function HomeView({
   headline,
   intro,
   featured,
+  questions,
   resumeUrl,
   meetingHref,
 }: HomeViewProps) {
-  const { resolver } = useMatch();
+  const { index } = useMatch();
   const [exiting, setExiting] = useState(false);
 
   const results = useMemo(
-    () => resolveFeatured(resolver, featured),
-    [resolver, featured],
+    () => resolveFeatured(index, featured),
+    [index, featured],
   );
 
   return (
     <>
-      <MatchSearchBar query={query} />
+      {query ? null : (
+        <div className="mb-6 flex justify-center">
+          <DoodleMark size={16} />
+        </div>
+      )}
+
+      <MatchSearchBar query={query} showButtons={!query} />
 
       {query ? (
         <div className="mt-6">
-          <MatchSearchResults query={query} aiEnabled={aiEnabled} />
+          <MatchSearchResults
+            query={query}
+            aiEnabled={aiEnabled}
+            questions={questions}
+          />
         </div>
       ) : (
         <>
-          <h1 className="mt-6 text-[32px] leading-tight font-normal text-[#202124]">
+          <ShortcutTiles />
+
+          <h1 className="mt-8 text-[32px] leading-tight font-normal text-[#202124]">
             {headline || "Team Matching Profile"}
           </h1>
           <div
@@ -90,6 +106,7 @@ export function HomeView({
                       note={result.note}
                       snippet={result.snippet}
                       jumps={result.jumps}
+                      featured
                     />
                   </li>
                 ))}

@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import type { Ad } from "@/lib/ad-targeting";
+import type { MatchOwner } from "@/lib/match-owner";
 import {
   createReferenceResolver,
   type MatchReferenceIndex,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/match-tab-store";
 import { HOME_KEY, resolveTab, type MatchTab } from "@/lib/match-tabs";
 import { SHELL_WIDTH } from "./match-layout";
+import { VisitRecorder } from "./shortcut-tiles";
 import { TabStrip } from "./tab-strip";
 
 export const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
@@ -44,10 +46,16 @@ interface MatchContextValue {
   index: MatchReferenceIndex;
   resolver: ReferenceResolver;
   ownerName: string;
+  /** The person the page is about, for the knowledge panel. */
+  owner: MatchOwner;
   /** Every ad eligible to run; each slot picks its own from this. */
   ads: Ad[];
-  /** False for the owner's own sessions, so they don't skew the counts. */
-  reportAds: boolean;
+  /**
+   * False for the owner's own sessions. Everything counted — ad
+   * impressions, searches — is counted about visitors; the owner
+   * browsing his own page would otherwise be most of the data.
+   */
+  isVisitor: boolean;
 }
 
 const MatchContext = createContext<MatchContextValue | null>(null);
@@ -69,6 +77,7 @@ interface MatchShellProps {
   base: string;
   index: MatchReferenceIndex;
   ownerName: string;
+  owner: MatchOwner;
   /** Title of the home tab — the page's own headline. */
   homeTitle: string;
   isEditor: boolean;
@@ -123,6 +132,7 @@ export function MatchShell({
   base,
   index,
   ownerName,
+  owner,
   homeTitle,
   isEditor,
   fontClass,
@@ -166,12 +176,11 @@ export function MatchShell({
       index,
       resolver,
       ownerName,
+      owner,
       ads,
-      // The owner browsing their own page would otherwise account for
-      // most of what the ad statistics describe.
-      reportAds: !isEditor,
+      isVisitor: !isEditor,
     }),
-    [base, index, resolver, ownerName, ads, isEditor],
+    [base, index, resolver, ownerName, owner, ads, isEditor],
   );
 
   // Keys whose entry has since been renamed or deleted resolve to null
@@ -216,6 +225,7 @@ export function MatchShell({
         className={`${fontClass} min-h-screen flex-1 bg-[#f8f9fa] text-[#3c4043] [--accent:#1a73e8] [--bg:#f8f9fa] [--bg-elev:#ffffff] [--danger:#d93025] [--dim:#5f6368] [--hover-bg:rgba(26,115,232,0.05)] [--line:#dadce0] [--title:#202124]`}
       >
         <FloatingOrbs />
+        <VisitRecorder />
 
         <div className="sticky top-0 z-30">
           <header className="border-b border-[#dadce0] bg-white/85 backdrop-blur">
@@ -247,32 +257,27 @@ export function MatchShell({
                 </span>
               </Link>
               {isEditor ? (
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/admin/pages"
-                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-                  >
-                    Pages
-                  </Link>
-                  <Link
-                    href="/admin/ads"
-                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-                  >
-                    Ads
-                  </Link>
-                  <Link
-                    href="/admin/feedback"
-                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-                  >
-                    Feedback
-                  </Link>
-                  <Link
-                    href={`${base}?edit=1`}
-                    className="rounded-full border border-[#dadce0] px-4 py-1.5 text-sm font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
-                  >
-                    Edit page
-                  </Link>
-                </div>
+                <nav
+                  aria-label="Editor tools"
+                  className="flex items-center gap-1.5"
+                >
+                  {[
+                    { href: "/admin/pages", label: "Pages" },
+                    { href: "/admin/questions", label: "Q&A" },
+                    { href: "/admin/ads", label: "Ads" },
+                    { href: "/admin/search-console", label: "Searches" },
+                    { href: "/admin/feedback", label: "Feedback" },
+                    { href: `${base}?edit=1`, label: "Edit page" },
+                  ].map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="rounded-full border border-[#dadce0] px-3 py-1.5 text-[13px] font-medium text-[#1a73e8] transition-colors hover:bg-[#f1f6fe]"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </nav>
               ) : null}
             </div>
           </header>

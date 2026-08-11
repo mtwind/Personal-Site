@@ -5,6 +5,7 @@ import { MatchEditorForm } from "@/components/match/match-editor-form";
 import { getAuthState } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { getMatchContext } from "@/lib/match-index";
+import { getActiveQuestions } from "@/lib/questions-data";
 
 /**
  * The page a visit starts on. The search lives here — a query is
@@ -12,11 +13,12 @@ import { getMatchContext } from "@/lib/match-index";
  * can't back out of — and so does the way in to every other page.
  */
 export default async function MatchHome(props: PageProps<"/match/[slug]">) {
-  const [{ slug }, search, context, auth] = await Promise.all([
+  const [{ slug }, search, context, auth, questions] = await Promise.all([
     props.params,
     props.searchParams,
     getMatchContext(),
     getAuthState(),
+    getActiveQuestions(),
   ]);
 
   if (!context || context.page.slug !== slug) notFound();
@@ -52,6 +54,7 @@ export default async function MatchHome(props: PageProps<"/match/[slug]">) {
       headline={page.headline}
       intro={page.intro}
       featured={context.featured}
+      questions={questions}
       resumeUrl={page.resumeUrl}
       meetingHref={meetingHref}
     />

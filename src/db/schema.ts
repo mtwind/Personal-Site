@@ -248,6 +248,42 @@ export const pages = pgTable(
   (table) => [index("pages_visibility_idx").on(table.visibility)],
 );
 
+/**
+ * "People also ask": the questions a visitor is likely to have, answered
+ * before they think to ask.
+ *
+ * These are authored, not generated. The AI overview already answers
+ * whatever is typed; what this carries is the other half — the questions
+ * a recruiter would never type into someone's profile ("does he need
+ * sponsorship?", "when could he start?") but wants the answer to. The
+ * point is to volunteer them.
+ */
+export const relatedQuestions = pgTable(
+  "related_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    question: text("question").notNull(),
+    /** Supports the same `[[kind:name]]` links the rest of the site uses. */
+    answer: text("answer").notNull().default(""),
+    /**
+     * Searches this question belongs under. Empty means it is general
+     * enough to show for anything, which is the common case.
+     */
+    keywords: jsonb("keywords").$type<string[]>().notNull().default([]),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("related_questions_active_sort_idx").on(table.active, table.sortOrder),
+  ],
+);
+
 /** Exit-survey submissions from the team-matching page. */
 export const feedbackSubmissions = pgTable("feedback_submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -288,8 +324,15 @@ export const searchQueries = pgTable(
      * written down.
      */
     ipHash: text("ip_hash").notNull(),
-    /** 'ok' | 'rate_limited' | 'unavailable' | 'error' */
+    /** 'search' | 'ok' | 'empty' | 'rate_limited' | 'unavailable' | 'error' */
     outcome: text("outcome").notNull().default("ok"),
+    /**
+     * How many results the keyword search returned, for rows logged by
+     * the browser. Null for rows the ask endpoint wrote, which never saw
+     * a result count. Zero is the interesting value: it is the record of
+     * a visitor asking for something this profile doesn't answer.
+     */
+    resultCount: integer("result_count"),
     model: text("model"),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),

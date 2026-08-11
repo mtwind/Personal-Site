@@ -141,6 +141,13 @@
       "when": 1786467177797,
       "tag": "0019_ad_info_text",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786467177798,
+      "tag": "0020_people_also_ask",
+      "breakpoints": true
     }
   ]
 }
