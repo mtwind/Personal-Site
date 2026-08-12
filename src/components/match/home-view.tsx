@@ -1,12 +1,20 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { resolveFeatured, type FeaturedEntry } from "@/lib/match-featured";
+import {
+  countByKind,
+  listByKind,
+  resolveFeatured,
+  type FeaturedEntry,
+} from "@/lib/match-featured";
+import { FILTER_KINDS, filterFromParam } from "@/lib/match-search";
 import type { RelatedQuestion } from "@/lib/questions-data";
 import { DoodleMark } from "./doodle-mark";
 import { ExitDialog } from "./exit-dialog";
 import { FeedbackStrip } from "./feedback-strip";
+import { FilterTabs, TAB_LABEL } from "./filter-tabs";
 import { MatchRichText } from "./match-rich-text";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 import { MatchSearchBar } from "./search-bar";
@@ -49,13 +57,40 @@ export function HomeView({
   resumeUrl,
   meetingHref,
 }: HomeViewProps) {
-  const { index } = useMatch();
+  const { base, index } = useMatch();
   const [exiting, setExiting] = useState(false);
 
-  const results = useMemo(
+  // The listing's tab, from the same `?t=` the results page narrows by.
+  // A link into "Projects" here and one into "Projects" there are the
+  // same shape of link, and both are undone by the back button.
+  const tab = filterFromParam(useSearchParams().get("t"));
+
+  const picked = useMemo(
     () => resolveFeatured(index, featured),
     [index, featured],
   );
+  const counts = useMemo(() => countByKind(index), [index]);
+
+  const results = useMemo(
+    () => (tab ? listByKind(index, tab) : picked),
+    [index, picked, tab],
+  );
+
+  // The leading tab is the page's own listing rather than an "All", so
+  // it is only offered when something was actually picked out for it.
+  const tabs = [
+    ...(picked.length > 0
+      ? [{ href: base, label: "Start here", active: tab === null }]
+      : []),
+    ...FILTER_KINDS.filter((kind) => (counts.get(kind) ?? 0) > 0).map(
+      (kind) => ({
+        href: `${base}?t=${kind}`,
+        label: TAB_LABEL[kind],
+        count: counts.get(kind) ?? 0,
+        active: tab === kind,
+      }),
+    ),
+  ];
 
   return (
     <>
@@ -97,11 +132,16 @@ export function HomeView({
             </p>
           ) : null}
 
-          {results.length > 0 ? (
-            <section aria-label="Start here" className="mt-8">
-              <h2 className="border-b border-[#dadce0] pb-3 text-[11px] font-medium tracking-[0.14em] text-[#5f6368] uppercase">
-                Start here
-              </h2>
+          {/* The strip that used to be a "Start here" heading. It reads
+              as one because the picked listing is still the tab it opens
+              on — the rest of the profile is simply beside it now,
+              rather than only reachable by searching for it. */}
+          {tabs.length > 0 ? (
+            <section
+              aria-label={tab ? TAB_LABEL[tab] : "Start here"}
+              className="mt-8"
+            >
+              <FilterTabs label="Browse the profile" tabs={tabs} />
               <ul className="mt-4 space-y-3">
                 {results.map((result) => (
                   <li key={`${result.target.kind}:${result.target.id}`}>
@@ -111,7 +151,7 @@ export function HomeView({
                       note={result.note}
                       snippet={result.snippet}
                       jumps={result.jumps}
-                      featured
+                      origin={tab ? "browse" : "featured"}
                     />
                   </li>
                 ))}

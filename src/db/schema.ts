@@ -79,6 +79,17 @@ export const projects = pgTable("projects", {
   endDate: date("end_date"),
   bullets: jsonb("bullets").$type<string[]>().notNull().default([]),
   repoUrl: text("repo_url"),
+  /**
+   * Keep this one off the public site and show it only on the
+   * team-matching page.
+   *
+   * For the work a general reader has no reason to be shown but a
+   * hiring reader does — the site they are reading it on being the
+   * first example. It is not a secret: the project is a real page under
+   * the team-matching site, and the overview answers from it. It simply
+   * doesn't list itself on the front door.
+   */
+  matchOnly: boolean("match_only").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()

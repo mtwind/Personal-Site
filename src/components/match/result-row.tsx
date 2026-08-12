@@ -23,9 +23,17 @@ interface ResultRowProps {
   terms?: string[];
   /** Which fields the query hit — what "About this result" explains. */
   why?: string[];
-  /** True when the row is on the home page because it was chosen. */
-  featured?: boolean;
+  /**
+   * Why this row is on the page at all, which is the question "About
+   * this result" exists to answer. A ranked hit is the default; the
+   * home page's own listing is `featured`, and its kind tabs are
+   * `browse` — a complete list, in the profile's order, ranked by
+   * nothing.
+   */
+  origin?: RowOrigin;
 }
+
+export type RowOrigin = "search" | "featured" | "browse";
 
 /**
  * One organic result, laid out the way Google lays one out: the source
@@ -54,7 +62,7 @@ export function ResultRow({
   jumps = [],
   terms = [],
   why = [],
-  featured = false,
+  origin = "search",
 }: ResultRowProps) {
   const { base, resolver, ownerName } = useMatch();
   const href = targetHref(base, resolver, target);
@@ -83,7 +91,7 @@ export function ResultRow({
           title={title}
           why={why}
           terms={terms}
-          featured={featured}
+          origin={origin}
         />
       </div>
 
@@ -162,13 +170,13 @@ function AboutThisResult({
   title,
   why,
   terms,
-  featured,
+  origin,
 }: {
   kind: string;
   title: string;
   why: string[];
   terms: string[];
-  featured: boolean;
+  origin: RowOrigin;
 }) {
   const { open, ref, buttonProps, panelProps } =
     useHoverDisclosure<HTMLDivElement>();
@@ -205,10 +213,16 @@ function AboutThisResult({
             {article(kind)} {kind.toLowerCase()} on this profile.
           </p>
 
-          {featured ? (
+          {origin === "featured" ? (
             <p className="mt-2 text-[12.5px] leading-5 text-[#5f6368]">
               It appears here because it was chosen for the home page, not
               because a search ranked it.
+            </p>
+          ) : origin === "browse" ? (
+            <p className="mt-2 text-[12.5px] leading-5 text-[#5f6368]">
+              It appears here because you are looking at every{" "}
+              {kind.toLowerCase()} on this profile. Nothing is ranked or left
+              out.
             </p>
           ) : why.length > 0 ? (
             <p className="mt-2 text-[12.5px] leading-5 text-[#5f6368]">

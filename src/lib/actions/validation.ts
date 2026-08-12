@@ -114,6 +114,7 @@ export const projectSchema = z.object({
   startDate: z.iso.date().nullable(),
   endDate: z.iso.date().nullable(),
   repoUrl: z.url("Repo link must be a valid URL").nullable(),
+  matchOnly: z.boolean(),
   bullets: z.array(z.string().max(500)).max(20),
   skills: z.array(skillSelectionSchema).max(30),
 });
@@ -190,6 +191,7 @@ export function parseProjectForm(formData: FormData) {
     startDate: normalizeMonth(formData.get("startDate")),
     endDate: normalizeMonth(formData.get("endDate")),
     repoUrl: emptyToNull(formData.get("repoUrl")),
+    matchOnly: formData.get("matchOnly") === "on",
     bullets: bulletList(formData),
     skills: parseJsonField(formData.get("skills")),
   });

@@ -135,6 +135,47 @@ export function featureCandidates(
 }
 
 /**
+ * Everything of one kind, as rows for the home listing.
+ *
+ * The home page leads with a handful of entries chosen by hand, which is
+ * the right thing to read first and the wrong thing to be limited to —
+ * a reader who wants the projects wants all of them. So the tabs beside
+ * "Start here" list a whole kind, in the profile's own order, drawn as
+ * the same rows: browsing and featuring differ in what is listed, not in
+ * how it reads.
+ *
+ * Built out of the picker's candidate list so there is one definition of
+ * what exists and what order it comes in.
+ */
+export function listByKind(
+  index: MatchReferenceIndex,
+  kind: ReferenceKind,
+): FeaturedResult[] {
+  return resolveFeatured(
+    index,
+    featureCandidates(index)
+      .filter((candidate) => candidate.kind === kind)
+      .map((candidate) => ({
+        kind: candidate.kind,
+        id: candidate.id,
+        title: null,
+        snippet: null,
+      })),
+  );
+}
+
+/** How many entries each tab would list. */
+export function countByKind(
+  index: MatchReferenceIndex,
+): Map<ReferenceKind, number> {
+  const tally = new Map<ReferenceKind, number>();
+  for (const candidate of featureCandidates(index)) {
+    tally.set(candidate.kind, (tally.get(candidate.kind) ?? 0) + 1);
+  }
+  return tally;
+}
+
+/**
  * The rows to render, in the order they were arranged.
  *
  * Every row describes itself exactly as the search results would — same

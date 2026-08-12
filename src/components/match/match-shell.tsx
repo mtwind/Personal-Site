@@ -247,23 +247,30 @@ export function MatchShell({
               className="h-[3px] w-full"
               style={{ background: FOUR_COLOR_GRADIENT }}
             />
+            {/* Wrapping rather than a fixed row: the editor's six tools
+                don't fit beside the title until the shell itself widens,
+                so below that they take a row of their own beneath it —
+                and on a phone they wrap again within that row. The
+                breakpoint is the shell's own, because that is exactly
+                where the header stops being a 3xl column. A visit
+                without the tools stays the single row it always was. */}
             <div
-              className={`${SHELL_WIDTH} flex h-14 items-center justify-between px-5`}
+              className={`${SHELL_WIDTH} flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:px-5 min-[1100px]:flex-nowrap min-[1100px]:py-0`}
             >
               <Link
                 href={base}
-                className="flex items-center gap-3 rounded-full outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#1a73e8]"
+                className="flex min-w-0 items-center gap-2 rounded-full outline-offset-4 focus-visible:outline-2 focus-visible:outline-[#1a73e8] sm:gap-3"
               >
-                <span className="flex items-center gap-1" aria-hidden>
+                <span className="flex shrink-0 items-center gap-1" aria-hidden>
                   {GOOGLE_DOTS.map((color) => (
                     <span
                       key={color}
-                      className="h-2.5 w-2.5 rounded-full"
+                      className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
                       style={{ background: color }}
                     />
                   ))}
                 </span>
-                <span className="text-[17px] text-[#5f6368]">
+                <span className="truncate text-[15px] text-[#5f6368] sm:text-[17px]">
                   Team Matching ·{" "}
                   <span className="font-medium text-[#202124]">
                     {ownerName}
@@ -273,7 +280,7 @@ export function MatchShell({
               {isEditor ? (
                 <nav
                   aria-label="Editor tools"
-                  className="flex items-center gap-1.5"
+                  className="flex w-full flex-wrap items-center gap-1.5 min-[1100px]:w-auto min-[1100px]:flex-nowrap min-[1100px]:justify-end"
                 >
                   {[
                     { href: "/admin/pages", label: "Pages" },

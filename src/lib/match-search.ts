@@ -252,7 +252,13 @@ const KIND_FILTER: Record<string, ReferenceKind> = {
   tools: "skill",
 };
 
-/** Every kind a filter can name, for the UI that offers them. */
+/**
+ * Every kind a filter can name, for the UI that offers them.
+ *
+ * Also the order the tabs appear in, on the results page and on the home
+ * listing alike: what was written, then where the work happened, then
+ * the work, then what it was learned from, then what it was built with.
+ */
 export const FILTER_KINDS: ReferenceKind[] = [
   "page",
   "experience",
@@ -260,6 +266,17 @@ export const FILTER_KINDS: ReferenceKind[] = [
   "course",
   "skill",
 ];
+
+/**
+ * The `?t=` value, when it names a kind that can be filtered by.
+ *
+ * The parameter is whatever was in the address bar, so an unknown value
+ * has to mean "no filter" rather than "no results" — a mistyped link
+ * lands on the unnarrowed page instead of an empty one.
+ */
+export function filterFromParam(value: string | null): ReferenceKind | null {
+  return FILTER_KINDS.find((kind) => kind === value) ?? null;
+}
 
 /** Base score for a pure-intent query, counted down to preserve order. */
 const INTENT_BASE = 1000;

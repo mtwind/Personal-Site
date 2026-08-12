@@ -115,6 +115,23 @@ export function ProjectForm({ project, courseId, onClose }: ProjectFormProps) {
       <Field label="Skills" htmlFor="skills">
         <SkillPickerField initial={toSkillSelections(project?.skills ?? [])} />
       </Field>
+      <label className="flex items-start gap-2.5 rounded-md border border-(--line) px-3 py-2 font-sans text-sm text-(--text) transition-colors has-checked:border-(--accent) has-checked:bg-(--hover-bg)">
+        <input
+          type="checkbox"
+          name="matchOnly"
+          defaultChecked={project?.matchOnly ?? false}
+          className="mt-1 h-3.5 w-3.5"
+        />
+        <span>
+          <span className="block font-medium text-(--title)">
+            Team-matching page only
+          </span>
+          <span className="block font-sans text-xs text-(--dim)">
+            Keeps it off this site. It is still a real page over there, and
+            the overview still answers from it.
+          </span>
+        </span>
+      </label>
       <FormError message={state && !state.ok ? state.error : null} />
       <div className="flex gap-2">
         <SubmitButton>{project ? "Save changes" : "Add project"}</SubmitButton>

@@ -5,27 +5,19 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 
 import { KIND_LABEL, type ReferenceKind } from "@/lib/match-references";
-import { FILTER_KINDS, relatedSearches, timedSearch } from "@/lib/match-search";
+import {
+  FILTER_KINDS,
+  filterFromParam,
+  relatedSearches,
+  timedSearch,
+} from "@/lib/match-search";
 import type { RelatedQuestion } from "@/lib/questions-data";
+import { FilterTabs, TAB_LABEL } from "./filter-tabs";
 import { SponsoredResults } from "./match-ads";
 import { MatchAiOverview } from "./match-ai-overview";
 import { useMatch } from "./match-shell";
 import { PeopleAlsoAsk } from "./people-also-ask";
 import { ResultRow } from "./result-row";
-
-/** Plural label for a filter tab. */
-const TAB_LABEL: Record<ReferenceKind, string> = {
-  page: "Pages",
-  experience: "Experience",
-  project: "Projects",
-  course: "Courses",
-  skill: "Skills",
-};
-
-/** The `?t=` value, when it names a kind this page can filter by. */
-function filterFromParam(value: string | null): ReferenceKind | null {
-  return FILTER_KINDS.find((kind) => kind === value) ?? null;
-}
 
 /**
  * The results page: an AI-overview slot above a ranked list of profile
@@ -79,23 +71,23 @@ export function MatchSearchResults({
 
   return (
     <div>
-      <nav
-        aria-label="Filter results"
-        className="flex flex-wrap items-center gap-1 border-b border-[#dadce0]"
-      >
-        <FilterTab href={href(null)} label="All" active={filter === null} />
-        {FILTER_KINDS.filter((kind) => (counts.get(kind) ?? 0) > 0).map(
-          (kind) => (
-            <FilterTab
-              key={kind}
-              href={href(kind)}
-              label={TAB_LABEL[kind]}
-              count={counts.get(kind) ?? 0}
-              active={filter === kind}
-            />
+      <FilterTabs
+        label="Filter results"
+        tabs={[
+          { href: href(null), label: "All", active: filter === null },
+          // Only the kinds this query actually turned up: a tab that
+          // leads to an empty list is a dead end the reader has to
+          // discover by clicking it.
+          ...FILTER_KINDS.filter((kind) => (counts.get(kind) ?? 0) > 0).map(
+            (kind) => ({
+              href: href(kind),
+              label: TAB_LABEL[kind],
+              count: counts.get(kind) ?? 0,
+              active: filter === kind,
+            }),
           ),
-        )}
-      </nav>
+        ]}
+      />
 
       <p className="mt-3 text-[13px] text-[#70757a]">
         About {shown.length} {shown.length === 1 ? "result" : "results"} (
@@ -171,36 +163,6 @@ export function MatchSearchResults({
         </section>
       ) : null}
     </div>
-  );
-}
-
-function FilterTab({
-  href,
-  label,
-  count,
-  active,
-}: {
-  href: string;
-  label: string;
-  count?: number;
-  active: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      scroll={false}
-      aria-current={active ? "page" : undefined}
-      className={`-mb-px border-b-[3px] px-3.5 py-2.5 text-[14px] transition-colors ${
-        active
-          ? "border-[#1a73e8] font-medium text-[#1a73e8]"
-          : "border-transparent text-[#5f6368] hover:text-[#202124]"
-      }`}
-    >
-      {label}
-      {count !== undefined ? (
-        <span className="ml-1.5 text-[12px] text-[#80868b]">{count}</span>
-      ) : null}
-    </Link>
   );
 }
 
