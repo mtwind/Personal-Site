@@ -14,6 +14,7 @@ import {
   type ReferenceTarget,
 } from "@/lib/match-references";
 import { targetHref } from "@/lib/match-tabs";
+import { FeedbackStrip } from "./feedback-strip";
 import { AdBanner } from "./match-ads";
 import { MatchProse } from "./match-prose";
 import { RankedSkills } from "./ranked-skills";
@@ -96,6 +97,9 @@ export function EntryView({
           .filter(Boolean)
           .join(" ")}
       />
+
+      {/* Where reading an entry actually ends. */}
+      <FeedbackStrip />
     </article>
   );
 }

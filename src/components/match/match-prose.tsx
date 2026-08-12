@@ -145,26 +145,44 @@ function List({
 function Inline({
   nodes,
   resolver,
+  /**
+   * True inside a link, where a `[[…]]` token in the label would
+   * otherwise resolve to a second link nested in the first one.
+   */
+  inLink = false,
 }: {
   nodes: MarkdownInline[];
   resolver: ReferenceResolver;
+  inLink?: boolean;
 }) {
   return (
     <>
       {nodes.map((node, index) => {
         switch (node.type) {
           case "text":
-            return <Tokens key={index} text={node.text} resolver={resolver} />;
+            return inLink ? (
+              <Fragment key={index}>{node.text}</Fragment>
+            ) : (
+              <Tokens key={index} text={node.text} resolver={resolver} />
+            );
           case "strong":
             return (
               <strong key={index} className="font-medium text-[#202124]">
-                <Inline nodes={node.children} resolver={resolver} />
+                <Inline
+                  nodes={node.children}
+                  resolver={resolver}
+                  inLink={inLink}
+                />
               </strong>
             );
           case "em":
             return (
               <em key={index}>
-                <Inline nodes={node.children} resolver={resolver} />
+                <Inline
+                  nodes={node.children}
+                  resolver={resolver}
+                  inLink={inLink}
+                />
               </em>
             );
           case "code":
@@ -176,9 +194,55 @@ function Inline({
                 {node.text}
               </code>
             );
+          case "link":
+            return (
+              <ExternalLink key={index} href={node.href}>
+                <Inline nodes={node.children} resolver={resolver} inLink />
+              </ExternalLink>
+            );
         }
       })}
     </>
+  );
+}
+
+/**
+ * A link off this site.
+ *
+ * Drawn the same blue as an internal reference but with the arrow that
+ * the rest of the page uses for leaving it, and opened in a new tab: a
+ * reader following a citation out of a profile is not done with the
+ * profile.
+ */
+function ExternalLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline rounded-sm font-medium text-[#1a73e8] underline decoration-[#1a73e8]/40 underline-offset-[3px] transition-colors hover:bg-[#e8f0fe] hover:decoration-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8]"
+    >
+      {children}
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="ml-0.5 inline-block h-[0.8em] w-[0.8em] align-[-0.05em] opacity-70"
+        aria-hidden
+      >
+        <path d="M4 5h7M4 5v14h16v-7" />
+        <path d="M14 4h6v6M20 4l-8 8" />
+      </svg>
+    </a>
   );
 }
 

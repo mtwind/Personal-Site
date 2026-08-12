@@ -258,6 +258,32 @@ export const feedbackSchema = z
 
 export type FeedbackInput = z.infer<typeof feedbackSchema>;
 
+/**
+ * The inline strip's two halves.
+ *
+ * Split because they are two separate submissions: the role is written
+ * the moment it is tapped, and everything else is an optional second
+ * act against the row that tap created. Same fields as the one-shot
+ * form above, so both routes store the same shape.
+ */
+export const feedbackRoleSchema = z.object({
+  role: z.enum(["recruiter", "hiring_manager", "googler", "other"]),
+});
+
+export const feedbackDetailSchema = z
+  .object({
+    id: z.uuid(),
+    improvementNote: z.string().max(2000).nullable(),
+    wantsCall: z.boolean(),
+    visitorEmail: z.email("Enter a valid email").nullable(),
+  })
+  .refine((data) => !data.wantsCall || data.visitorEmail !== null, {
+    message: "Add an email so I can reach out about the call",
+    path: ["visitorEmail"],
+  });
+
+export type FeedbackDetailInput = z.infer<typeof feedbackDetailSchema>;
+
 export function parseFeedbackForm(formData: FormData) {
   return feedbackSchema.safeParse({
     role: emptyToNull(formData.get("role")),

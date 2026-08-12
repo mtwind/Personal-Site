@@ -53,7 +53,10 @@ export default async function MatchSite(
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-[#dadce0] bg-white">
         <iframe
-          src="/"
+          // `embed` drops the site's own link back to this page: in here
+          // that link would load the team-matching page inside the tab
+          // that is already showing it.
+          src="/?embed=1"
           title={`${context.ownerName}'s personal site`}
           // Everything the viewport has left under the header, the
           // strip and this page's own heading — measured, so the frame

@@ -1,17 +1,22 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import { submitFeedback } from "@/lib/actions/team-match";
 import type { ActionResult } from "@/lib/actions/validation";
-
-const ROLES: [string, string][] = [
-  ["recruiter", "Recruiter"],
-  ["hiring_manager", "Hiring manager"],
-  ["googler", "Googler"],
-  ["other", "Other"],
-];
+import {
+  getFeedbackVisit,
+  getServerFeedbackVisit,
+  subscribeFeedbackVisit,
+  writeFeedbackVisit,
+} from "@/lib/feedback-visit";
+import { FEEDBACK_ROLES as ROLES, FeedbackDetails } from "./feedback-strip";
 
 /** Leaving the hidden page lands on the public profile. */
 const LEAVE_URL = "/";
@@ -20,13 +25,64 @@ interface ExitDialogProps {
   onDismiss: () => void;
 }
 
-/** Quick exit survey shown when a visitor chooses to leave the page. */
+/**
+ * The survey shown when a visitor chooses to leave the page.
+ *
+ * It no longer assumes it is asking first. The strip at the foot of
+ * every page usually got there before it, so this opens on whatever is
+ * still missing: nothing at all if the visit already answered in full,
+ * the second half if only a role was tapped, and the whole form for
+ * someone who pressed "leave" without meeting the strip.
+ */
 export function ExitDialog({ onDismiss }: ExitDialogProps) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(
     submitFeedback,
     null,
   );
   const [wantsCall, setWantsCall] = useState(false);
+  const visit = useSyncExternalStore(
+    subscribeFeedbackVisit,
+    getFeedbackVisit,
+    getServerFeedbackVisit,
+  );
+
+  // Answering the whole form here counts the same as answering it in the
+  // page, so reopening this doesn't ask a second time.
+  useEffect(() => {
+    if (state?.ok) writeFeedbackVisit({ done: true });
+  }, [state?.ok]);
+
+  // Already said everything: don't ask again on the way out.
+  if (visit.done) {
+    return (
+      <Overlay>
+        <h2 className="text-xl font-medium text-[#202124]">Thanks again</h2>
+        <p className="mt-2 text-sm text-[#5f6368]">
+          You already sent your feedback — that&apos;s all I wanted.
+        </p>
+        <LeaveButtons onDismiss={onDismiss} />
+      </Overlay>
+    );
+  }
+
+  // A role was tapped somewhere in the page; ask for the rest only.
+  if (visit.id && !state?.ok) {
+    return (
+      <Overlay>
+        <h2 className="text-xl font-medium text-[#202124]">
+          Before you go — anything to add?
+        </h2>
+        <p className="mt-2 text-sm text-[#5f6368]">
+          You already told me who you are, which was the useful part.
+        </p>
+        <FeedbackDetails
+          id={visit.id}
+          onDone={() => writeFeedbackVisit({ done: true })}
+        />
+        <LeaveButtons onDismiss={onDismiss} />
+      </Overlay>
+    );
+  }
 
   if (state?.ok) {
     return (
@@ -35,21 +91,7 @@ export function ExitDialog({ onDismiss }: ExitDialogProps) {
         <p className="mt-2 text-sm text-[#5f6368]">
           Your feedback is in{wantsCall ? " — I’ll reach out about that call." : "."}
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-full px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#f1f6fe]"
-          >
-            Stay a bit longer
-          </button>
-          <a
-            href={LEAVE_URL}
-            className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white hover:bg-[#1765cc]"
-          >
-            Leave page
-          </a>
-        </div>
+        <LeaveButtons onDismiss={onDismiss} />
       </Overlay>
     );
   }
@@ -156,6 +198,27 @@ export function ExitDialog({ onDismiss }: ExitDialogProps) {
         </div>
       </form>
     </Overlay>
+  );
+}
+
+/** Stay or go — the two things left once the asking is done. */
+function LeaveButtons({ onDismiss }: ExitDialogProps) {
+  return (
+    <div className="mt-6 flex justify-end gap-3">
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="rounded-full px-4 py-2 text-sm font-medium text-[#1a73e8] hover:bg-[#f1f6fe]"
+      >
+        Stay a bit longer
+      </button>
+      <a
+        href={LEAVE_URL}
+        className="rounded-full bg-[#1a73e8] px-5 py-2 text-sm font-medium text-white hover:bg-[#1765cc]"
+      >
+        Leave page
+      </a>
+    </div>
   );
 }
 

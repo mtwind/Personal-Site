@@ -287,7 +287,12 @@ export const relatedQuestions = pgTable(
 /** Exit-survey submissions from the team-matching page. */
 export const feedbackSubmissions = pgTable("feedback_submissions", {
   id: uuid("id").primaryKey().defaultRandom(),
-  /** 'exit_form' for now; 'contact' reserved for a future contact form. */
+  /**
+   * Where the answer came from: 'exit_form' is the leaving dialog,
+   * 'page_strip' the inline prompt at the foot of every page — which
+   * writes its row on the first tap, so a row with a role and nothing
+   * else is a reader who answered that much and no more.
+   */
   source: text("source").notNull().default("exit_form"),
   /** 'recruiter' | 'hiring_manager' | 'googler' | 'other' */
   role: text("role"),

@@ -30,7 +30,11 @@ const NAV_PRIORITY = [
 interface SiteHeaderProps {
   name: string;
   auth: AuthState;
-  /** Secret team-match slug — only passed when the viewer is the editor. */
+  /**
+   * Secret team-match slug — passed only for a viewer already entitled
+   * to it: the editor, or someone who has been on that page and would
+   * otherwise have no way back to it.
+   */
   matchSlug?: string | null;
 }
 
@@ -43,7 +47,15 @@ export function SiteHeader({ name, auth, matchSlug }: SiteHeaderProps) {
         {matchSlug ? (
           <Link
             href={`/match/${matchSlug}`}
-            title="Team-matching page (only you can see this link)"
+            title={
+              auth.isEditor
+                ? "Team-matching page (only you can see this link)"
+                : "Back to the team-matching page"
+            }
+            // Breaks out of the frame rather than loading inside it, for
+            // the copy of this header that renders in the site tab of
+            // that very page.
+            target="_top"
             className="flex items-center gap-1.5 rounded-full border border-(--line) px-3 py-1.5 font-sans text-[11px] font-semibold tracking-[0.14em] text-(--dim) uppercase transition-colors duration-200 hover:border-(--accent) hover:text-(--accent)"
           >
             <span className="flex items-center gap-0.5" aria-hidden>

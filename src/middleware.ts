@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  MATCH_VISIT_COOKIE,
+  MATCH_VISIT_MAX_AGE,
+  matchSlugFromPath,
+} from "@/lib/match-visit";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
@@ -16,7 +21,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return updateSession(request);
+  const response = await updateSession(request);
+
+  // Note the visit here rather than in the page: every route under the
+  // team-matching page passes through this, so the reader who lands deep
+  // in it and leaves from there is remembered the same as the one who
+  // started at its home.
+  const slug = matchSlugFromPath(request.nextUrl.pathname);
+  if (slug && request.cookies.get(MATCH_VISIT_COOKIE)?.value !== slug) {
+    response.cookies.set(MATCH_VISIT_COOKIE, slug, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+      maxAge: MATCH_VISIT_MAX_AGE,
+    });
+  }
+
+  return response;
 }
 
 export const config = {

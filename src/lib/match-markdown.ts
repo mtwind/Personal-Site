@@ -2,10 +2,16 @@
  * The slice of Markdown background notes are written in.
  *
  * Deliberately small: headings, lists (nested by indentation), bold,
- * italic and inline code. No links, images, tables, or HTML — a note
- * links to *this site's* entries with `[[project:…]]` tokens, and those
- * are resolved separately so a token can sit inside a bullet or a bold
- * run without either feature knowing about the other.
+ * italic, inline code, and `[text](url)` links to somewhere else on the
+ * web. No images, tables, or HTML — and no link syntax for this site's
+ * own pages, which a note reaches with `[[project:…]]` tokens instead.
+ * Those are resolved separately, so a token can sit inside a bullet or a
+ * bold run without either feature knowing about the other.
+ *
+ * The two link forms stay separate on purpose. An internal one is a
+ * *name* that the index resolves at render time, so it survives a URL
+ * changing; an external one is an address this site can only repeat. One
+ * syntax for both would hide which of those you had written.
  *
  * Pure and serializable: the parser runs on the server for the page and
  * in the browser for the editor's preview, from the same source.
@@ -15,7 +21,8 @@ export type MarkdownInline =
   | { type: "text"; text: string }
   | { type: "strong"; children: MarkdownInline[] }
   | { type: "em"; children: MarkdownInline[] }
-  | { type: "code"; text: string };
+  | { type: "code"; text: string }
+  | { type: "link"; href: string; children: MarkdownInline[] };
 
 export interface MarkdownListItem {
   inline: MarkdownInline[];
@@ -166,6 +173,65 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
  * works and an unmatched marker stays literal — a lone asterisk in
  * prose should read as an asterisk, not swallow the rest of the line.
  */
+/**
+ * The schemes a link may carry.
+ *
+ * An allowlist rather than a blocklist, because the prose is stored text
+ * that ends up in an `href`: `javascript:` is the famous one, but `data:`
+ * and every scheme a browser invents next are the same problem. Anything
+ * else is not a link at all — the source stays literal, which is visible
+ * in the editor's preview rather than silently swallowed.
+ */
+const SAFE_HREF = /^(?:https?:\/\/|mailto:)[^\s]+$/i;
+
+export function isSafeHref(value: string): boolean {
+  return SAFE_HREF.test(value.trim());
+}
+
+/**
+ * A bare domain, written the way people say one out loud —
+ * `pipeline-usa.com`, `example.co.uk/pricing`. Labels separated by dots
+ * with a letters-only suffix, so a version number or a relative path
+ * can't pass for one.
+ */
+const BARE_DOMAIN =
+  /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d+)?(?:[/?#]\S*)?$/i;
+
+/**
+ * What an address written without a scheme must have meant.
+ *
+ * Nobody types `https://` on a business card, and an author who pastes
+ * what's on theirs is not asking for the link to quietly not be one.
+ * A bare domain is the only thing filled in — anything already carrying
+ * a scheme is left exactly as written, so `javascript:` still arrives at
+ * the allowlist above to be turned away, and a relative path stays
+ * relative and stays literal.
+ *
+ * Applied at render as well as when the editor writes a link, so prose
+ * that already says `pipeline-usa.com` starts working where it stands.
+ */
+export function normalizeHref(value: string): string {
+  const trimmed = value.trim();
+  return BARE_DOMAIN.test(trimmed) ? `https://${trimmed}` : trimmed;
+}
+
+/**
+ * `[text](url)`, built rather than typed — the editor writes links
+ * through this so what it inserts is what the parser above reads.
+ *
+ * Brackets in the text and whitespace or parens in the URL would each
+ * end the link early, so they come out; a link with no text of its own
+ * shows its address without the scheme, which is what a reader would
+ * have written anyway.
+ */
+export function markdownLink(label: string, href: string): string {
+  const url = normalizeHref(href).replace(/[\s()]/g, "");
+  const text =
+    label.replace(/[[\]\n]/g, "").trim() ||
+    url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  return `[${text}](${url})`;
+}
+
 export function parseInline(source: string): MarkdownInline[] {
   const nodes: MarkdownInline[] = [];
   let text = "";
@@ -186,6 +252,18 @@ export function parseInline(source: string): MarkdownInline[] {
       pushText();
       nodes.push({ type: "code", text: code[1] });
       index += code[0].length;
+      continue;
+    }
+
+    // `[text](url)`. A `[[project:…]]` token can't be mistaken for one:
+    // its brackets aren't followed by a paren, so the scanner walks past
+    // it and leaves it in the text run, where the resolver picks it up.
+    const link = /^\[([^\]\n]*)\]\(([^()\s]+)\)/.exec(rest);
+    const href = link ? normalizeHref(link[2]) : "";
+    if (link && isSafeHref(href)) {
+      pushText();
+      nodes.push({ type: "link", href, children: parseInline(link[1]) });
+      index += link[0].length;
       continue;
     }
 

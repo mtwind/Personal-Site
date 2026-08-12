@@ -3,6 +3,9 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
+  isSafeHref,
+  markdownLink,
+  normalizeHref,
   parseMarkdown,
   type MarkdownBlock,
   type MarkdownInline,
@@ -50,41 +53,62 @@ interface ProseEditorProps {
 /** One indent level. Tabs, because that's what the Tab key inserts. */
 const INDENT = "\t";
 
-/** A `[[…]]` token as written, and where in the source it sits. */
-interface TokenSpan {
+/** A link already in the source — either kind — and where it sits. */
+interface LinkSpan {
   start: number;
   end: number;
-  /** The kind exactly as spelled, `note:` included. */
-  kind: string;
-  name: string;
-  /** The display text, empty when the token shows the entry's name. */
+  /**
+   * The entry a `[[…]]` token names, with the kind exactly as spelled so
+   * a legacy `note:` survives being edited. Null for an external link.
+   */
+  target: { kind: string; name: string } | null;
+  /** The address of an external link; empty for a token. */
+  href: string;
+  /** The display text, empty when a token shows the entry's own name. */
   label: string;
 }
+
+/** `[text](url)`, for finding one the caret is in. */
+const MARKDOWN_LINK = /\[([^\]\n]*)\]\(([^()\s]+)\)/g;
 
 /**
  * The link the caret is sitting in, if it is sitting in one.
  *
  * Touching either end counts, because that is where the caret is left
  * after a link is inserted — so "insert a link, then fix what it says"
- * is one gesture rather than a hunt for the middle of the token.
+ * is one gesture rather than a hunt for the middle of it.
+ *
+ * Tokens are looked for first. Nothing can match both patterns, but the
+ * order says which feature owns the syntax if that ever stops being true.
  */
-function tokenAt(value: string, from: number, to: number): TokenSpan | null {
-  // A fresh regex per call: TOKEN_PATTERN is global and stateful.
-  const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
-  let match: RegExpExecArray | null;
+function linkAt(value: string, from: number, to: number): LinkSpan | null {
+  // Fresh regexes per call: both are global, and so stateful.
+  const inside = (match: RegExpExecArray) =>
+    from >= match.index && to <= match.index + match[0].length;
 
-  while ((match = pattern.exec(value)) !== null) {
-    const start = match.index;
-    const end = start + match[0].length;
-    if (from >= start && to <= end) {
-      return {
-        start,
-        end,
-        kind: match[1],
-        name: match[2].trim(),
-        label: match[3]?.trim() ?? "",
-      };
-    }
+  const tokens = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
+  let match: RegExpExecArray | null;
+  while ((match = tokens.exec(value)) !== null) {
+    if (!inside(match)) continue;
+    return {
+      start: match.index,
+      end: match.index + match[0].length,
+      target: { kind: match[1], name: match[2].trim() },
+      href: "",
+      label: match[3]?.trim() ?? "",
+    };
+  }
+
+  const external = new RegExp(MARKDOWN_LINK.source, MARKDOWN_LINK.flags);
+  while ((match = external.exec(value)) !== null) {
+    if (!inside(match)) continue;
+    return {
+      start: match.index,
+      end: match.index + match[0].length,
+      target: null,
+      href: match[2],
+      label: match[1].trim(),
+    };
   }
 
   return null;
@@ -104,11 +128,13 @@ function kindLabel(kind: string): string {
  * what lets the same panel choose a target and change the words.
  */
 interface LinkDraft {
-  /** The existing token being edited, or null when inserting. */
-  span: TokenSpan | null;
+  /** The existing link being edited, or null when inserting. */
+  span: LinkSpan | null;
   /** What the link should read as. Empty means the entry's own name. */
   text: string;
-  /** The source range the finished token replaces. */
+  /** The web-address box, for a link that points off this site. */
+  href: string;
+  /** The source range the finished link replaces. */
   range: [number, number];
 }
 
@@ -208,7 +234,7 @@ export function ProseEditor({
     const area = areaRef.current;
     const from = area?.selectionStart ?? value.length;
     const to = area?.selectionEnd ?? from;
-    const span = tokenAt(value, from, to);
+    const span = linkAt(value, from, to);
 
     setPreview(false);
     setDraft({
@@ -216,6 +242,7 @@ export function ProseEditor({
       // Words already selected are what the link should say; a link
       // already written keeps saying what it says until told otherwise.
       text: span ? span.label : value.slice(from, to).trim(),
+      href: span?.href ?? "",
       range: span ? [span.start, span.end] : [from, to],
     });
   }
@@ -368,13 +395,20 @@ export function ProseEditor({
           draft={draft}
           options={options}
           onText={(text) => setDraft({ ...draft, text })}
+          onHref={(href) => setDraft({ ...draft, href })}
           onPick={(option) =>
             writeLink(referenceToken(option, draft.text), draft.range)
           }
+          onLinkOut={() =>
+            writeLink(markdownLink(draft.text, draft.href), draft.range)
+          }
           onSaveText={() => {
             const { span, text, range } = draft;
-            if (!span) return;
-            writeLink(writeReferenceToken(span.kind, span.name, text), range);
+            if (!span?.target) return;
+            writeLink(
+              writeReferenceToken(span.target.kind, span.target.name, text),
+              range,
+            );
           }}
           onClose={() => setDraft(null)}
         />
@@ -402,7 +436,8 @@ export function ProseEditor({
           <>
             Use <span className="font-medium">Link to…</span> to mention a page,
             role, project, course or skill — it becomes a link to that
-            entry&apos;s page. Select words first, or fill in{" "}
+            entry&apos;s page — or to paste a web address for somewhere off
+            this site. Select words first, or fill in{" "}
             <span className="font-medium">Link text</span>, to have the link
             read as something other than the entry&apos;s name; put the caret
             on a link and press it again to change those words later.
@@ -416,7 +451,10 @@ export function ProseEditor({
             box — press Escape first if you want to tab out of it. Links carry
             their own words: select them before pressing{" "}
             <span className="font-medium">Link to…</span>, or put the caret on
-            a link and press it again to reword it.
+            a link and press it again to reword it. That panel writes both
+            kinds — an entry on this site, or{" "}
+            <code className="font-mono">[text](https://…)</code> for anywhere
+            else.
           </>
         )}
       </p>
@@ -471,19 +509,31 @@ function LinkPanel({
   draft,
   options,
   onText,
+  onHref,
   onPick,
+  onLinkOut,
   onSaveText,
   onClose,
 }: {
   draft: LinkDraft;
   options: ReferenceOption[];
   onText: (text: string) => void;
+  onHref: (href: string) => void;
   onPick: (option: ReferenceOption) => void;
+  onLinkOut: () => void;
   onSaveText: () => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
   const editing = draft.span;
+  const entry = editing?.target ?? null;
+  // A bare domain counts: it is filled in on the way to the source.
+  const outbound = isSafeHref(normalizeHref(draft.href));
+
+  function linkOut() {
+    if (!outbound) return;
+    onLinkOut();
+  }
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -507,8 +557,8 @@ function LinkPanel({
           <span className="text-[10px] tracking-[0.1em] uppercase">
             Editing link
           </span>
-          <span className="text-(--text)">
-            {kindLabel(editing.kind)} · {editing.name}
+          <span className="truncate text-(--text)">
+            {entry ? `${kindLabel(entry.kind)} · ${entry.name}` : editing.href}
           </span>
         </p>
       ) : null}
@@ -526,14 +576,17 @@ function LinkPanel({
               if (event.key === "Escape") onClose();
               if (event.key === "Enter") {
                 event.preventDefault();
-                if (editing) onSaveText();
+                if (entry) onSaveText();
+                else if (outbound) linkOut();
               }
             }}
-            placeholder={editing ? editing.name : "The entry's own name"}
+            placeholder={
+              entry ? entry.name : outbound ? "The address itself" : "The entry's own name"
+            }
             className={`${inputClass} mt-1`}
           />
         </label>
-        {editing ? (
+        {entry ? (
           <button
             type="button"
             onClick={onSaveText}
@@ -596,6 +649,47 @@ function LinkPanel({
           ))}
         </ul>
       )}
+
+      {/* The other kind of link: an address this site can only repeat. */}
+      <div className="border-t border-(--line) pt-3">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="min-w-56 flex-1 font-sans text-[11px] text-(--dim)">
+            Or a web address, for somewhere off this site
+            <input
+              type="url"
+              inputMode="url"
+              value={draft.href}
+              onChange={(event) => onHref(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") onClose();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  linkOut();
+                }
+              }}
+              placeholder="pipeline-usa.com, or https://…"
+              className={`${inputClass} mt-1`}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={linkOut}
+            disabled={!outbound}
+            className="rounded-md border border-(--accent) px-3 py-2 font-sans text-xs text-(--accent) transition-colors duration-200 hover:bg-(--hover-bg) disabled:cursor-default disabled:border-(--line) disabled:text-(--dim)"
+          >
+            {editing && !entry ? "Save link" : "Link out"}
+          </button>
+        </div>
+        {draft.href.trim() !== "" && !outbound ? (
+          <p className="mt-1.5 font-sans text-[11px] text-(--danger)">
+            A domain (<code className="font-mono">example.com/pricing</code>)
+            or an <code className="font-mono">https://</code>,{" "}
+            <code className="font-mono">http://</code> or{" "}
+            <code className="font-mono">mailto:</code> address — anything
+            else stays as written rather than becoming a link.
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -743,6 +837,19 @@ function PreviewInline({
               >
                 {node.text}
               </code>
+            );
+          case "link":
+            // Solid underline and the address in the title, against the
+            // dotted underline an internal reference gets: the preview's
+            // job is to show which of the two you actually wrote.
+            return (
+              <span
+                key={index}
+                title={node.href}
+                className="font-medium text-(--accent) underline underline-offset-2"
+              >
+                <PreviewInline nodes={node.children} known={known} />↗
+              </span>
             );
         }
       })}

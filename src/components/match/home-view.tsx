@@ -6,6 +6,7 @@ import { resolveFeatured, type FeaturedEntry } from "@/lib/match-featured";
 import type { RelatedQuestion } from "@/lib/questions-data";
 import { DoodleMark } from "./doodle-mark";
 import { ExitDialog } from "./exit-dialog";
+import { FeedbackStrip } from "./feedback-strip";
 import { MatchRichText } from "./match-rich-text";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 import { MatchSearchBar } from "./search-bar";
@@ -162,6 +163,9 @@ export function HomeView({
           </div>
         </>
       )}
+
+      {/* Above the way out, not behind it. */}
+      <FeedbackStrip />
 
       <div className="mt-12 flex justify-center border-t border-[#dadce0] pt-8">
         <button
