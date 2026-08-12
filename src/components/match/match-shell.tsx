@@ -12,7 +12,6 @@ import {
 } from "react";
 
 import type { Ad } from "@/lib/ad-targeting";
-import type { MatchOwner } from "@/lib/match-owner";
 import {
   createReferenceResolver,
   type MatchReferenceIndex,
@@ -26,7 +25,12 @@ import {
   pruneTabs,
   subscribeTabs,
 } from "@/lib/match-tab-store";
-import { HOME_KEY, resolveTab, type MatchTab } from "@/lib/match-tabs";
+import {
+  HOME_KEY,
+  resolveTab,
+  SITE_KEY,
+  type MatchTab,
+} from "@/lib/match-tabs";
 import { SHELL_WIDTH } from "./match-layout";
 import { VisitRecorder } from "./shortcut-tiles";
 import { TabStrip } from "./tab-strip";
@@ -46,8 +50,6 @@ interface MatchContextValue {
   index: MatchReferenceIndex;
   resolver: ReferenceResolver;
   ownerName: string;
-  /** The person the page is about, for the knowledge panel. */
-  owner: MatchOwner;
   /** Every ad eligible to run; each slot picks its own from this. */
   ads: Ad[];
   /**
@@ -77,7 +79,6 @@ interface MatchShellProps {
   base: string;
   index: MatchReferenceIndex;
   ownerName: string;
-  owner: MatchOwner;
   /** Title of the home tab — the page's own headline. */
   homeTitle: string;
   isEditor: boolean;
@@ -132,7 +133,6 @@ export function MatchShell({
   base,
   index,
   ownerName,
-  owner,
   homeTitle,
   isEditor,
   fontClass,
@@ -157,9 +157,11 @@ export function MatchShell({
 
   // The page being viewed is a tab whether or not the store has caught
   // up yet, so the server and the first client render agree on it and
-  // the strip never flickers a tab into place after hydration.
+  // the strip never flickers a tab into place after hydration. The site
+  // tab is in that same set of always-present keys: it is open before
+  // anyone opens it, which is the whole point of it.
   const keys = useMemo(
-    () => [...new Set([HOME_KEY, ...stored, active])],
+    () => [...new Set([HOME_KEY, SITE_KEY, ...stored, active])],
     [stored, active],
   );
 
@@ -176,11 +178,10 @@ export function MatchShell({
       index,
       resolver,
       ownerName,
-      owner,
       ads,
       isVisitor: !isEditor,
     }),
-    [base, index, resolver, ownerName, owner, ads, isEditor],
+    [base, index, resolver, ownerName, ads, isEditor],
   );
 
   // Keys whose entry has since been renamed or deleted resolve to null
@@ -285,9 +286,22 @@ export function MatchShell({
           <TabStrip tabs={tabs} activeKey={active} onClose={onCloseTab} />
         </div>
 
-        <div className={`${SHELL_WIDTH} relative z-10 flex gap-8 px-5 py-10`}>
-          <main className="w-full max-w-3xl min-w-0">{children}</main>
-          {rail}
+        {/* The site tab carries a whole website of its own, so it gets
+            the column the ads would have taken and the reading width
+            they were sized against. */}
+        <div
+          className={`${SHELL_WIDTH} relative z-10 flex gap-8 px-5 ${
+            active === SITE_KEY ? "py-5" : "py-10"
+          }`}
+        >
+          <main
+            className={`w-full min-w-0 ${
+              active === SITE_KEY ? "" : "max-w-3xl"
+            }`}
+          >
+            {children}
+          </main>
+          {active === SITE_KEY ? null : rail}
         </div>
       </div>
     </MatchContext.Provider>

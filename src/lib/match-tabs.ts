@@ -44,11 +44,26 @@ export interface MatchTab {
   href: string;
   title: string;
   iconUrl: string | null;
-  kind: "home" | ReferenceKind;
+  kind: "home" | "site" | ReferenceKind;
 }
 
 /** Home is always open and never closes; it is where the search lives. */
 export const HOME_KEY = "";
+
+/**
+ * The public site, open in a tab of its own.
+ *
+ * This page is a deep dive written for one audience, and it is reached
+ * by a slug nobody can guess — which leaves the ordinary website, the
+ * one with everything else on it, unreachable from here unless something
+ * says where it is. So it is a tab: already open when the page loads,
+ * and never closable, because a reader who shut it would have no way
+ * back to it.
+ */
+export const SITE_KEY = "/site";
+
+/** What that tab is called, in the strip and in its own heading. */
+export const SITE_TITLE = "Personal site";
 
 /**
  * Turn a path into the tab that represents it.
@@ -68,6 +83,10 @@ export function resolveTab(
 
   if (key === HOME_KEY) {
     return { key, href, title: homeTitle, iconUrl: null, kind: "home" };
+  }
+
+  if (key === SITE_KEY) {
+    return { key, href, title: SITE_TITLE, iconUrl: null, kind: "site" };
   }
 
   const parts = key.split("/").filter(Boolean);

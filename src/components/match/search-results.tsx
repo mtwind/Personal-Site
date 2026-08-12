@@ -102,10 +102,13 @@ export function MatchSearchResults({
         {seconds.toFixed(2)} seconds)
       </p>
 
-      {/* Above the overview, where Google puts them. */}
+      {/* The answer comes first. Google sells the top of the page to
+          whoever bid for it; nobody bid for this one, so the thing a
+          reader actually asked for goes above the ads. */}
+      {aiEnabled ? <MatchAiOverview query={query} /> : null}
+
       <SponsoredResults query={query} />
 
-      {aiEnabled ? <MatchAiOverview query={query} /> : null}
 
       {shown.length === 0 ? (
         <NoResults

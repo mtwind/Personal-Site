@@ -40,7 +40,6 @@ export default async function MatchLayout(props: LayoutProps<"/match/[slug]">) {
       base={matchBase(slug)}
       index={context.index}
       ownerName={context.ownerName}
-      owner={context.owner}
       homeTitle={context.page.headline || "Team Matching"}
       isEditor={auth.isEditor}
       fontClass={roboto.className}

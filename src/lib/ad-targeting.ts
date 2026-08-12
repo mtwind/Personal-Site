@@ -122,6 +122,16 @@ export interface SelectAdsOptions {
   seed: string;
   /** Ads already placed elsewhere on this view. */
   exclude?: string[];
+  /**
+   * The relevance an ad has to earn to run here at all — 0, the default,
+   * lets an untargeted slot fall back to rotation.
+   *
+   * A rotating ad beside the page is decoration and reads as one. An ad
+   * *among the answers* is a claim to be one, so a slot that sits with
+   * the results would rather be empty than offer season tickets to
+   * someone who asked about a tech stack.
+   */
+  minScore?: number;
 }
 
 /**
@@ -130,10 +140,18 @@ export interface SelectAdsOptions {
  * Relevance wins where there is any; where there isn't — the home page,
  * a search with no overlap — the list rotates by seed, so an untargeted
  * slot still shows something different from the slot beside it rather
- * than the same first row everywhere.
+ * than the same first row everywhere. Unless the slot set a `minScore`,
+ * in which case too little relevance means no ad.
  */
 export function selectAds(pool: Ad[], options: SelectAdsOptions): Ad[] {
-  const { slot, terms = [], limit = 1, seed, exclude = [] } = options;
+  const {
+    slot,
+    terms = [],
+    limit = 1,
+    seed,
+    exclude = [],
+    minScore = 0,
+  } = options;
 
   const inSlot = pool.filter((ad) => ad.slots.includes(slot));
   // Repeating an advertiser reads better than an empty slot, so the
@@ -153,13 +171,25 @@ export function selectAds(pool: Ad[], options: SelectAdsOptions): Ad[] {
       // ranking is a rotation of the list rather than its natural order.
       rotation: (index - offset + eligible.length) % eligible.length,
     }))
+    .filter((entry) => entry.score >= minScore)
     .sort((a, b) => b.score - a.score || a.rotation - b.rotation)
     .slice(0, limit)
     .map((entry) => entry.ad);
 }
 
-/** How many sponsored results run above the search results. */
+/** How many sponsored results run with the search results. */
 export const SPONSORED_LIMIT = 2;
+
+/**
+ * How related a sponsored result has to be to the search.
+ *
+ * Three is one exact keyword — the score a real hit earns. The prefix
+ * matching below that is a guess worth making when it only decides the
+ * *order* of ads that were going to run anyway, but not one worth
+ * putting a GPS watch under "tech stack" for on the strength of
+ * "technology" starting with "tech".
+ */
+export const SPONSORED_MIN_SCORE = 3;
 
 /**
  * How many rail ads are *certain* to be on screen.
@@ -198,6 +228,11 @@ export interface AdPlan {
  * twice — which is the tell that the ads are decoration rather than an
  * auction.
  *
+ * Only the sponsored slot insists on relevance. It is the one placed
+ * *among the answers*, so an ad there that has nothing to do with the
+ * search is noise in the middle of the reply; the rail and the banner
+ * sit beside the page, where a rotation reads as the joke it is.
+ *
  * Filling them in one pure pass rather than one component at a time is
  * what lets each placement work this out for itself. `bannerTerms` only
  * affects the last slot, so a component that doesn't know them still
@@ -212,6 +247,7 @@ export function planAds(pool: Ad[], input: AdPlanInput): AdPlan {
         terms: adTerms(query),
         limit: SPONSORED_LIMIT,
         seed: `${pathname}?q=${query}`,
+        minScore: SPONSORED_MIN_SCORE,
       })
     : [];
   const taken = sponsored.map((ad) => ad.id);

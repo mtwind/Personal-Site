@@ -71,9 +71,49 @@ export function referenceOptions(
   ];
 }
 
-/** `[[project:Figgie Genius]]` */
-export function referenceToken(option: ReferenceOption): string {
-  return `[[${option.kind}:${option.name}]]`;
+/**
+ * The characters a display label can't carry.
+ *
+ * `|` separates the label from the name and `]` ends the token, so a
+ * label containing either would truncate the link it belongs to. They're
+ * dropped rather than escaped: there is no escape syntax to drop them
+ * into, and no sentence needs a bracket in the middle of a link.
+ */
+export function sanitizeReferenceLabel(label: string): string {
+  // Whitespace is collapsed after the strip rather than before it, so a
+  // dropped bracket doesn't leave a gap where it used to be.
+  return label.replace(/[[\]|]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * `[[project:Figgie Genius]]`, or `[[project:Figgie Genius|the one with
+ * the bots]]` when the prose wants to call it something else.
+ *
+ * A label matching the entry's own name is left off. The two render
+ * identically, and the shorter token is the one that still reads as the
+ * name of a thing when the entry is later renamed.
+ *
+ * Takes the kind as a string rather than a `ReferenceKind` so the editor
+ * can rewrite a token it found in the text without first resolving it —
+ * including a legacy `note:` one, which keeps its old spelling instead of
+ * being quietly rewritten by an edit to its label.
+ */
+export function writeReferenceToken(
+  kind: string,
+  name: string,
+  label?: string,
+): string {
+  const shown = sanitizeReferenceLabel(label ?? "");
+  const suffix = shown && shown !== name.trim() ? `|${shown}` : "";
+  return `[[${kind}:${name}${suffix}]]`;
+}
+
+/** The token for something the picker offered. */
+export function referenceToken(
+  option: ReferenceOption,
+  label?: string,
+): string {
+  return writeReferenceToken(option.kind, option.name, label);
 }
 
 export { KIND_LABEL };

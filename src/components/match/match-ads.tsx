@@ -236,7 +236,9 @@ function adLinkProps(ad: Ad, slot: AdSlot, view: string, isVisitor: boolean) {
 /**
  * Ads above the search results, styled the way Google styles a text ad:
  * the label first, then the advertiser, then the blue link. They sit
- * above the AI overview because that is where the real thing puts them.
+ * below the AI overview rather than above it, because the answer is the
+ * point of the page — and they only appear at all when the search has
+ * something to do with them.
  */
 export function SponsoredResults({ query }: { query: string }) {
   const { isVisitor } = useMatch();

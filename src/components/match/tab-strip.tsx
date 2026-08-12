@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { HOME_KEY, type MatchTab } from "@/lib/match-tabs";
+import { HOME_KEY, SITE_KEY, type MatchTab } from "@/lib/match-tabs";
 import { SHELL_WIDTH } from "./match-layout";
 
 interface TabStripProps {
@@ -112,7 +112,10 @@ export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
         >
           {tabs.map((tab) => {
             const isActive = tab.key === activeKey;
-            const closable = tab.key !== HOME_KEY;
+            // The two standing tabs have no close button: both are
+            // always in the strip, so an X on either would be a control
+            // that does nothing.
+            const closable = tab.key !== HOME_KEY && tab.key !== SITE_KEY;
 
             return (
               <span
@@ -220,6 +223,12 @@ function TabGlyph({ kind }: { kind: MatchTab["kind"] }) {
     >
       {kind === "home" ? (
         <path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+      ) : kind === "site" ? (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3.5 9h17M3.5 15h17" />
+          <path d="M12 3c2.5 2.4 3.8 5.4 3.8 9s-1.3 6.6-3.8 9c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3z" />
+        </>
       ) : kind === "project" ? (
         <>
           <path d="M4 7h6l2 2h8v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />

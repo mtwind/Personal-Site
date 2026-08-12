@@ -9,7 +9,13 @@ import {
   type MarkdownListItem,
 } from "@/lib/match-markdown";
 import {
+  KIND_LABEL,
+  TOKEN_PATTERN,
+  type ReferenceKind,
+} from "@/lib/match-references";
+import {
   referenceToken,
+  writeReferenceToken,
   type ReferenceOption,
 } from "@/lib/reference-options";
 import { inputClass } from "@/components/edit/form-fields";
@@ -44,6 +50,68 @@ interface ProseEditorProps {
 /** One indent level. Tabs, because that's what the Tab key inserts. */
 const INDENT = "\t";
 
+/** A `[[…]]` token as written, and where in the source it sits. */
+interface TokenSpan {
+  start: number;
+  end: number;
+  /** The kind exactly as spelled, `note:` included. */
+  kind: string;
+  name: string;
+  /** The display text, empty when the token shows the entry's name. */
+  label: string;
+}
+
+/**
+ * The link the caret is sitting in, if it is sitting in one.
+ *
+ * Touching either end counts, because that is where the caret is left
+ * after a link is inserted — so "insert a link, then fix what it says"
+ * is one gesture rather than a hunt for the middle of the token.
+ */
+function tokenAt(value: string, from: number, to: number): TokenSpan | null {
+  // A fresh regex per call: TOKEN_PATTERN is global and stateful.
+  const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(value)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (from >= start && to <= end) {
+      return {
+        start,
+        end,
+        kind: match[1],
+        name: match[2].trim(),
+        label: match[3]?.trim() ?? "",
+      };
+    }
+  }
+
+  return null;
+}
+
+/** What a token's kind is called, with the legacy spelling folded in. */
+function kindLabel(kind: string): string {
+  return KIND_LABEL[(kind === "note" ? "page" : kind) as ReferenceKind] ?? kind;
+}
+
+/**
+ * The link the toolbar is working on.
+ *
+ * One shape for both jobs: writing a new link over the selection, and
+ * rewriting one already in the text. The difference is only whether
+ * `span` found something and what `range` therefore covers — which is
+ * what lets the same panel choose a target and change the words.
+ */
+interface LinkDraft {
+  /** The existing token being edited, or null when inserting. */
+  span: TokenSpan | null;
+  /** What the link should read as. Empty means the entry's own name. */
+  text: string;
+  /** The source range the finished token replaces. */
+  range: [number, number];
+}
+
 /**
  * Every place the site's own prose is written: a plain textarea with the
  * small set of affordances that prose actually has — Markdown marks, Tab
@@ -53,6 +121,12 @@ const INDENT = "\t";
  * One component for all of them on purpose. The `[[kind:name]]` tokens
  * mean the same thing wherever they are written, so the way you insert
  * one shouldn't depend on which box you happen to be typing in.
+ *
+ * A link can say something other than the name of what it points at —
+ * `[[project:Figgie Genius|the one with the bots]]` — because prose that
+ * has to name its subject in full every time it mentions it isn't prose.
+ * The panel writes that half of the token and edits it afterwards, so
+ * rewording a link never means retyping the link.
  *
  * Headings earn their button here. A `## heading` is not decoration: it
  * becomes an anchor on the published page and a jump link under that
@@ -88,7 +162,7 @@ export function ProseEditor({
   };
 
   const [preview, setPreview] = useState(false);
-  const [picking, setPicking] = useState(false);
+  const [draft, setDraft] = useState<LinkDraft | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   // Escape releases the Tab key back to focus movement, so the field is
   // never a keyboard trap.
@@ -120,6 +194,39 @@ export function ProseEditor({
     const { selectionStart: start, selectionEnd: end } = area;
     const next = value.slice(0, start) + text + value.slice(end);
     apply(next, start + text.length, start + text.length);
+  }
+
+  /**
+   * Open the link panel on whatever the caret is on.
+   *
+   * The selection is read here rather than when the panel acts on it,
+   * for two reasons: the panel's own inputs take the focus, and a
+   * preview swap unmounts the textarea entirely. Both would leave a
+   * later read of `selectionStart` pointing at nothing.
+   */
+  function openLink() {
+    const area = areaRef.current;
+    const from = area?.selectionStart ?? value.length;
+    const to = area?.selectionEnd ?? from;
+    const span = tokenAt(value, from, to);
+
+    setPreview(false);
+    setDraft({
+      span,
+      // Words already selected are what the link should say; a link
+      // already written keeps saying what it says until told otherwise.
+      text: span ? span.label : value.slice(from, to).trim(),
+      range: span ? [span.start, span.end] : [from, to],
+    });
+  }
+
+  /** Write a finished token over the range the draft claimed. */
+  function writeLink(token: string, [from, to]: [number, number]) {
+    const next = value.slice(0, from) + token + value.slice(to);
+    // The caret lands inside the new token, so the panel reopens on this
+    // link rather than starting a new one beside it.
+    apply(next, from + token.length, from + token.length);
+    setDraft(null);
   }
 
   /** Wrap the selection, or drop the marks in and sit between them. */
@@ -243,17 +350,9 @@ export function ProseEditor({
         )}
         <ToolButton
           label="Link to…"
-          title="Insert a link to a project, role, course, skill or page"
-          onClick={() => {
-            // Back to the source first: the token lands at the caret,
-            // and a caret you can't see is a token you can't place.
-            if (!picking) {
-              setPreview(false);
-              requestAnimationFrame(() => areaRef.current?.focus());
-            }
-            setPicking((open) => !open);
-          }}
-          active={picking}
+          title="Insert a link to a project, role, course, skill or page — or change what the link at the caret says"
+          onClick={() => (draft ? setDraft(null) : openLink())}
+          active={draft !== null}
         />
         <button
           type="button"
@@ -264,14 +363,20 @@ export function ProseEditor({
         </button>
       </div>
 
-      {picking ? (
-        <ReferencePicker
+      {draft ? (
+        <LinkPanel
+          draft={draft}
           options={options}
-          onPick={(option) => {
-            insert(referenceToken(option));
-            setPicking(false);
+          onText={(text) => setDraft({ ...draft, text })}
+          onPick={(option) =>
+            writeLink(referenceToken(option, draft.text), draft.range)
+          }
+          onSaveText={() => {
+            const { span, text, range } = draft;
+            if (!span) return;
+            writeLink(writeReferenceToken(span.kind, span.name, text), range);
           }}
-          onClose={() => setPicking(false)}
+          onClose={() => setDraft(null)}
         />
       ) : null}
 
@@ -297,7 +402,10 @@ export function ProseEditor({
           <>
             Use <span className="font-medium">Link to…</span> to mention a page,
             role, project, course or skill — it becomes a link to that
-            entry&apos;s page.
+            entry&apos;s page. Select words first, or fill in{" "}
+            <span className="font-medium">Link text</span>, to have the link
+            read as something other than the entry&apos;s name; put the caret
+            on a link and press it again to change those words later.
           </>
         ) : (
           <>
@@ -305,7 +413,10 @@ export function ProseEditor({
             <code className="font-mono">- bullet</code> (Tab to nest),{" "}
             <code className="font-mono">**bold**</code>,{" "}
             <code className="font-mono">*italic*</code>. Tab indents inside the
-            box — press Escape first if you want to tab out of it.
+            box — press Escape first if you want to tab out of it. Links carry
+            their own words: select them before pressing{" "}
+            <span className="font-medium">Link to…</span>, or put the caret on
+            a link and press it again to reword it.
           </>
         )}
       </p>
@@ -346,16 +457,33 @@ function ToolButton({
 /** How many matches the picker shows before asking for a better query. */
 const PICKER_LIMIT = 8;
 
-function ReferencePicker({
+/**
+ * The link panel: what the link points at, and what it says.
+ *
+ * Both at once rather than in two steps, because they are two halves of
+ * one decision — the reason to write "the one with the bots" instead of
+ * "Figgie Genius" is the sentence around it, which is on screen while
+ * this is open. Opened on an existing link it starts from that link's
+ * own words, so changing them leaves the target alone; picking a
+ * different entry from the list retargets the link and keeps the words.
+ */
+function LinkPanel({
+  draft,
   options,
+  onText,
   onPick,
+  onSaveText,
   onClose,
 }: {
+  draft: LinkDraft;
   options: ReferenceOption[];
+  onText: (text: string) => void;
   onPick: (option: ReferenceOption) => void;
+  onSaveText: () => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const editing = draft.span;
 
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -373,31 +501,80 @@ function ReferencePicker({
   }, [options, query]);
 
   return (
-    <div className="rounded-md border border-(--accent) bg-(--bg) p-3">
-      <input
-        autoFocus
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
-          if (event.key === "Enter") {
-            event.preventDefault();
-            if (matches[0]) onPick(matches[0]);
+    <div className="space-y-3 rounded-md border border-(--accent) bg-(--bg) p-3">
+      {editing ? (
+        <p className="flex flex-wrap items-baseline gap-2 font-sans text-xs text-(--dim)">
+          <span className="text-[10px] tracking-[0.1em] uppercase">
+            Editing link
+          </span>
+          <span className="text-(--text)">
+            {kindLabel(editing.kind)} · {editing.name}
+          </span>
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-48 flex-1 font-sans text-[11px] text-(--dim)">
+          Link text
+          <input
+            // On an existing link this is what you came to change, so it
+            // takes the focus; on a new one the target isn't chosen yet.
+            autoFocus={editing !== null}
+            value={draft.text}
+            onChange={(event) => onText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") onClose();
+              if (event.key === "Enter") {
+                event.preventDefault();
+                if (editing) onSaveText();
+              }
+            }}
+            placeholder={editing ? editing.name : "The entry's own name"}
+            className={`${inputClass} mt-1`}
+          />
+        </label>
+        {editing ? (
+          <button
+            type="button"
+            onClick={onSaveText}
+            className="rounded-md border border-(--accent) px-3 py-2 font-sans text-xs text-(--accent) transition-colors duration-200 hover:bg-(--hover-bg)"
+          >
+            Save text
+          </button>
+        ) : null}
+      </div>
+
+      <div>
+        <input
+          autoFocus={editing === null}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onClose();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (matches[0]) onPick(matches[0]);
+            }
+          }}
+          placeholder={
+            editing
+              ? "Point this link somewhere else…"
+              : "Find a page, role, project, coursework, course or skill…"
           }
-        }}
-        placeholder="Find a page, role, project, coursework, course or skill…"
-        className={inputClass}
-      />
+          className={inputClass}
+        />
+      </div>
+
       {options.length === 0 ? (
-        <p className="mt-2 font-sans text-xs text-(--dim)">
+        <p className="font-sans text-xs text-(--dim)">
           Nothing to link to yet — add work on the main site first.
         </p>
       ) : matches.length === 0 ? (
-        <p className="mt-2 font-sans text-xs text-(--dim)">
+        <p className="font-sans text-xs text-(--dim)">
           Nothing matches “{query.trim()}”.
         </p>
       ) : (
-        <ul className="mt-2 space-y-0.5">
+        <ul className="space-y-0.5">
           {matches.map((option) => (
             <li key={`${option.kind}:${option.name}`}>
               <button
@@ -533,14 +710,6 @@ function PreviewList({
   );
 }
 
-/**
- * `[[kind:name]]` or `[[kind:name|label]]`, mirroring the resolver —
- * `note:` included, since the resolver still honours the old spelling
- * and the preview would otherwise mark working links as broken.
- */
-const TOKEN =
-  /\[\[(project|skill|course|experience|page|note):([^\]|]+)(?:\|([^\]]*))?\]\]/g;
-
 function PreviewInline({
   nodes,
   known,
@@ -589,7 +758,9 @@ function PreviewTokens({
   known: Set<string>;
 }) {
   const pieces: React.ReactNode[] = [];
-  const pattern = new RegExp(TOKEN.source, TOKEN.flags);
+  // The resolver's own pattern, `note:` included: the old spelling still
+  // resolves, and the preview would otherwise call a working link broken.
+  const pattern = new RegExp(TOKEN_PATTERN.source, TOKEN_PATTERN.flags);
   let cursor = 0;
   let match: RegExpExecArray | null;
   let key = 0;
