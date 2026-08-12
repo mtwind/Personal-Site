@@ -77,6 +77,7 @@ export function ExitDialog({ onDismiss }: ExitDialogProps) {
         </p>
         <FeedbackDetails
           id={visit.id}
+          role={visit.role}
           onDone={() => writeFeedbackVisit({ done: true })}
         />
         <LeaveButtons onDismiss={onDismiss} />

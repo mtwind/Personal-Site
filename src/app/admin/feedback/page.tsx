@@ -50,6 +50,13 @@ function SubmissionCard({ submission }: { submission: FeedbackSubmission }) {
           </span>
         ))}
       </div>
+      {submission.team || submission.productArea ? (
+        <p className="mt-2 font-sans text-[12.5px] text-(--text)">
+          {[submission.team, submission.productArea]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      ) : null}
       {submission.improvementNote ? (
         <p className="mt-3 text-[15px] leading-6 text-(--text)">
           {submission.improvementNote}
@@ -59,6 +66,12 @@ function SubmissionCard({ submission }: { submission: FeedbackSubmission }) {
           No note left.
         </p>
       )}
+      {submission.contactInfo ? (
+        <p className="mt-3 font-sans text-[12.5px] text-(--text)">
+          Contact:{" "}
+          <span className="text-(--dim)">{submission.contactInfo}</span>
+        </p>
+      ) : null}
       {submission.wantsCall && (
         <p className="mt-3 font-sans text-[12.5px] text-(--accent)">
           Open to a call

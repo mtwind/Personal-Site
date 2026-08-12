@@ -148,6 +148,13 @@
       "when": 1786467177798,
       "tag": "0020_people_also_ask",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786510871378,
+      "tag": "0021_open_skin",
+      "breakpoints": true
     }
   ]
 }

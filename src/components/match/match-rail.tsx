@@ -17,6 +17,12 @@ import {
  * them on a wide screen. Hidden outright below the rail breakpoint
  * rather than stacked underneath — a column of ads is the first thing a
  * phone should lose.
+ *
+ * It scrolls with the page rather than staying pinned. A sticky column
+ * can only ever be one screen tall — anything past the fold of a pinned
+ * element is never scrolled to, because the element doesn't move — so
+ * pinning it capped the rail at whatever the viewport happened to fit,
+ * usually two cards, no matter how much page ran alongside it.
  */
 export function MatchRail() {
   const pathname = usePathname();
@@ -32,7 +38,7 @@ export function MatchRail() {
     <aside
       ref={railRef}
       aria-label="Sponsored"
-      className="sticky top-[7.5rem] hidden w-[300px] shrink-0 space-y-4 min-[1100px]:block"
+      className="hidden w-[300px] shrink-0 space-y-4 min-[1100px]:block"
     >
       {picks.map((ad) => (
         <RailCard key={ad.id} ad={ad} view={pathname} />
@@ -41,21 +47,18 @@ export function MatchRail() {
   );
 }
 
-/** Breathing room under the column when the viewport is what bounds it. */
-const RAIL_FOOT = 24;
-
 /**
  * How many ads the column has room for.
  *
- * Two things bound it, and the smaller wins. The viewport, because the
- * rail is sticky: an ad below the fold of a pinned column is an ad
- * nobody scrolls to. And the content beside it, because a rail taller
- * than the page it accompanies makes the page longer — a profile that
- * ends in five ads reads as an ad break, not a profile.
+ * The content beside it is what bounds it: the rail runs as long as the
+ * page it accompanies and stops there. A rail that outran its page
+ * would make the page longer, and a profile that ends in five ads reads
+ * as an ad break rather than a profile — so the ads fill the space
+ * beside the writing without ever inventing space of their own.
  *
- * Measured rather than assumed: `top` comes from the sticky offset the
- * class actually applied, and the card height from the card actually
- * rendered, so this stays right if either is restyled.
+ * Measured rather than assumed. The card height comes from the card
+ * actually rendered, so this stays right if the card is restyled, and
+ * the content height is re-read whenever the neighbour changes size.
  */
 function useRailCapacity(
   railRef: React.RefObject<HTMLElement | null>,
@@ -79,15 +82,14 @@ function useRailCapacity(
         (cardHeight && cardHeight > 0 ? cardHeight : RAIL_CARD_HEIGHT) +
         RAIL_GAP;
 
-      const top = parseFloat(window.getComputedStyle(rail).top) || 0;
-
-      const content =
-        rail.previousElementSibling?.getBoundingClientRect().height ??
-        Number.POSITIVE_INFINITY;
-      const viewport = window.innerHeight - top - RAIL_FOOT;
+      // Without a neighbour there is nothing to measure against, and
+      // guessing would mean guessing upwards — every ad in the pool.
+      // The starting capacity is the safer answer.
+      const content = rail.previousElementSibling?.getBoundingClientRect();
+      if (!content) return;
 
       // The last card needs no gap after it, hence the extra one here.
-      const room = Math.min(content, viewport) + RAIL_GAP;
+      const room = content.height + RAIL_GAP;
       const fits = Math.floor(room / unit);
 
       setCapacity(Math.max(0, Math.min(fits, poolSize)));

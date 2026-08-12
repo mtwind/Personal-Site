@@ -59,6 +59,10 @@ export function HomeView({
 
   return (
     <>
+      {/* Above the search field, so it is the first thing on the page
+          rather than the last. */}
+      <FeedbackStrip />
+
       {query ? null : (
         <div className="mb-6 flex justify-center">
           <DoodleMark size={16} />
@@ -163,9 +167,6 @@ export function HomeView({
           </div>
         </>
       )}
-
-      {/* Above the way out, not behind it. */}
-      <FeedbackStrip />
 
       <div className="mt-12 flex justify-center border-t border-[#dadce0] pt-8">
         <button

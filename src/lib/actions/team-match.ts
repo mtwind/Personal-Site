@@ -6,18 +6,18 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { contact, feedbackSubmissions, teamMatchPage } from "@/db/schema";
-import { sendFeedbackEmail } from "@/lib/email";
+import { sendFeedbackEmail, type FeedbackEmailInput } from "@/lib/email";
 import { getServerEnv } from "@/lib/env";
 import { deleteStoredFileByUrl, uploadResume } from "@/lib/storage";
 import { runMutation } from "./mutation";
 import {
   feedbackDetailSchema,
   feedbackRoleSchema,
+  feedbackTeamSchema,
   firstIssue,
   parseFeedbackForm,
   parseTeamMatchForm,
   type ActionResult,
-  type FeedbackInput,
 } from "./validation";
 
 /** Editor-only: update the hidden page's content and Google résumé. */
@@ -103,8 +103,15 @@ export async function submitFeedback(
   return { ok: true };
 }
 
-/** Where the owner is told about a submission. Best-effort by design. */
-async function notifyFeedback(input: FeedbackInput): Promise<void> {
+/**
+ * Where the owner is told about a submission. Best-effort by design.
+ *
+ * Typed as the mail's own input rather than the exit form's, because
+ * the two routes into it no longer carry the same fields: the strip's
+ * later slides add a team, a product area and contact details that the
+ * one-shot form never asks for.
+ */
+async function notifyFeedback(input: FeedbackEmailInput): Promise<void> {
   const notifyEmail =
     getServerEnv().NOTIFY_EMAIL ??
     (
@@ -157,19 +164,86 @@ export async function startFeedback(input: {
 }
 
 /**
- * PUBLIC action: the rest of what the strip asks, against the row the
- * first tap created.
+ * Whether a strip row is still the one its own visitor is filling in.
  *
  * The id is the only thing standing between a caller and someone else's
- * row, so this refuses rows that are old, rows that came from the exit
- * form, and rows already carrying an answer — a replayed id can add a
- * note to a fresh row of its own making and nothing else.
+ * row, so a row qualifies only while it is recent, came from the strip,
+ * and has not yet been finished. "Finished" means it carries something
+ * a person typed — a note or contact details — because those are the
+ * fields the later steps write; a replayed id can therefore add to a
+ * fresh row of its own making and nothing else.
+ */
+async function openStripRow(id: string) {
+  const [row] = await db
+    .select({
+      role: feedbackSubmissions.role,
+      source: feedbackSubmissions.source,
+      note: feedbackSubmissions.improvementNote,
+      contactInfo: feedbackSubmissions.contactInfo,
+      createdAt: feedbackSubmissions.createdAt,
+    })
+    .from(feedbackSubmissions)
+    .where(eq(feedbackSubmissions.id, id))
+    .limit(1);
+
+  if (
+    !row ||
+    row.source !== "page_strip" ||
+    row.note !== null ||
+    row.contactInfo !== null ||
+    Date.now() - row.createdAt.getTime() >= FEEDBACK_DETAIL_WINDOW_MS
+  ) {
+    return null;
+  }
+  return row;
+}
+
+/**
+ * PUBLIC action: the team slide, for hiring managers and Googlers.
+ *
+ * Stored on its own rather than held in the browser until the end, for
+ * the same reason the role is: an answer given is an answer kept, even
+ * if the reader closes the tab on the next question. No notification —
+ * a team name is a detail on a row, not news in its own right. The mail
+ * still goes out with the final step, by which point this is on the row
+ * and travels with it.
+ */
+export async function addFeedbackTeam(input: {
+  id: string;
+  team: string | null;
+  productArea: string | null;
+}): Promise<ActionResult> {
+  const parsed = feedbackTeamSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  const { id, ...team } = parsed.data;
+
+  try {
+    if (!(await openStripRow(id))) {
+      return { ok: false, error: "That feedback has already been sent." };
+    }
+
+    await db
+      .update(feedbackSubmissions)
+      .set(team)
+      .where(eq(feedbackSubmissions.id, id));
+    return { ok: true };
+  } catch (error: unknown) {
+    console.error("Feedback team update failed:", error);
+    return { ok: false, error: "Something went wrong saving that." };
+  }
+}
+
+/**
+ * PUBLIC action: the rest of what the strip asks, against the row the
+ * first tap created.
  */
 export async function addFeedbackDetail(input: {
   id: string;
   improvementNote: string | null;
   wantsCall: boolean;
   visitorEmail: string | null;
+  contactInfo: string | null;
 }): Promise<ActionResult> {
   const parsed = feedbackDetailSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
@@ -177,23 +251,8 @@ export async function addFeedbackDetail(input: {
   const { id, ...detail } = parsed.data;
 
   try {
-    const [row] = await db
-      .select({
-        role: feedbackSubmissions.role,
-        source: feedbackSubmissions.source,
-        note: feedbackSubmissions.improvementNote,
-        createdAt: feedbackSubmissions.createdAt,
-      })
-      .from(feedbackSubmissions)
-      .where(eq(feedbackSubmissions.id, id))
-      .limit(1);
-
-    const open =
-      row &&
-      row.source === "page_strip" &&
-      row.note === null &&
-      Date.now() - row.createdAt.getTime() < FEEDBACK_DETAIL_WINDOW_MS;
-    if (!open) {
+    const row = await openStripRow(id);
+    if (!row) {
       return { ok: false, error: "That feedback has already been sent." };
     }
 
@@ -202,7 +261,23 @@ export async function addFeedbackDetail(input: {
       .set(detail)
       .where(eq(feedbackSubmissions.id, id));
 
-    await notifyFeedback({ role: row.role as FeedbackInput["role"], ...detail });
+    // Read back what the earlier slides stored, so the mail describes
+    // the whole submission rather than only this last step of it.
+    const [saved] = await db
+      .select({
+        team: feedbackSubmissions.team,
+        productArea: feedbackSubmissions.productArea,
+      })
+      .from(feedbackSubmissions)
+      .where(eq(feedbackSubmissions.id, id))
+      .limit(1);
+
+    await notifyFeedback({
+      role: row.role,
+      ...detail,
+      team: saved?.team ?? null,
+      productArea: saved?.productArea ?? null,
+    });
     return { ok: true };
   } catch (error: unknown) {
     console.error("Feedback detail update failed:", error);

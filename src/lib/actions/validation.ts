@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { PRODUCT_AREA_VALUES } from "@/lib/google-product-areas";
+
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 /** Empty/whitespace form values become null (optional fields). */
@@ -270,12 +272,39 @@ export const feedbackRoleSchema = z.object({
   role: z.enum(["recruiter", "hiring_manager", "googler", "other"]),
 });
 
+/**
+ * The slide hiring managers and Googlers get before the feedback ask.
+ *
+ * Both fields are nullable because both are skippable: a reader who
+ * won't name their team is still worth hearing from, and a question
+ * that blocks the rest of the survey costs more than the answer is
+ * worth. The product area is checked against the list rather than left
+ * open, since it comes from a dropdown — anything else is a caller
+ * that didn't use the form.
+ */
+export const feedbackTeamSchema = z.object({
+  id: z.uuid(),
+  team: z.string().max(200).nullable(),
+  productArea: z
+    .string()
+    .max(120)
+    .refine((value) => PRODUCT_AREA_VALUES.includes(value), {
+      message: "Pick a product area from the list",
+    })
+    .nullable(),
+});
+
 export const feedbackDetailSchema = z
   .object({
     id: z.uuid(),
     improvementNote: z.string().max(2000).nullable(),
     wantsCall: z.boolean(),
     visitorEmail: z.email("Enter a valid email").nullable(),
+    /**
+     * Free text: the ask is "any contact info", so a LinkedIn URL or an
+     * internal handle has to be as acceptable as an address.
+     */
+    contactInfo: z.string().max(300).nullable(),
   })
   .refine((data) => !data.wantsCall || data.visitorEmail !== null, {
     message: "Add an email so I can reach out about the call",

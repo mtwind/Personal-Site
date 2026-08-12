@@ -7,6 +7,10 @@ export interface FeedbackEmailInput {
   improvementNote: string | null;
   wantsCall: boolean;
   visitorEmail: string | null;
+  /** Only ever asked of hiring managers and Googlers. */
+  team?: string | null;
+  productArea?: string | null;
+  contactInfo?: string | null;
 }
 
 /**
@@ -25,8 +29,14 @@ export async function sendFeedbackEmail(
     "New team-matching page feedback:",
     "",
     `Role: ${input.role ?? "not specified"}`,
+    // Only the two roles that are asked carry these, so an absent
+    // field is left out rather than reported as "not provided" — a
+    // recruiter's mail shouldn't list a question they never saw.
+    ...(input.team ? [`Team: ${input.team}`] : []),
+    ...(input.productArea ? [`Product area: ${input.productArea}`] : []),
     `Wants a call: ${input.wantsCall ? "YES" : "no"}`,
     `Visitor email: ${input.visitorEmail ?? "not provided"}`,
+    ...(input.contactInfo ? [`Contact info: ${input.contactInfo}`] : []),
     "",
     "Improvement note:",
     input.improvementNote ?? "(none)",

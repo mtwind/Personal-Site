@@ -40,6 +40,19 @@ export const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
 export const FOUR_COLOR_GRADIENT =
   "linear-gradient(90deg,#4285F4 0%,#4285F4 25%,#EA4335 25%,#EA4335 50%,#FBBC04 50%,#FBBC04 75%,#34A853 75%,#34A853 100%)";
 
+/**
+ * Gemini's gradient, for the one element on the page that has to be
+ * looked at rather than merely found.
+ *
+ * These are Gemini's own three colours rather than the four-colour bar
+ * the header uses, and that difference is the point: the header stripe
+ * says "this is the Google-shaped page", while this says "this is the
+ * part that wants you". Doubling the run of stops lets a slow slide
+ * across it loop without a seam.
+ */
+export const GEMINI_GRADIENT =
+  "linear-gradient(115deg,#4285F4,#9B72CB,#D96570,#9B72CB,#4285F4,#9B72CB,#D96570,#9B72CB,#4285F4)";
+
 /** Material elevation-on-hover for content cards. */
 export const CARD =
   "rounded-2xl border border-[#dadce0] bg-white p-6 transition-shadow duration-300 hover:shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]";
@@ -288,9 +301,16 @@ export function MatchShell({
 
         {/* The site tab carries a whole website of its own, so it gets
             the column the ads would have taken and the reading width
-            they were sized against. */}
+            they were sized against.
+
+            `items-start` keeps the two columns from stretching to each
+            other's height. The rail sizes itself by measuring the
+            content beside it, so a stretching main column would be
+            reporting the rail's own height back to it — a loop that can
+            only ever ratchet upwards, since every card added makes the
+            column it was measured against taller. */}
         <div
-          className={`${SHELL_WIDTH} relative z-10 flex gap-8 px-5 ${
+          className={`${SHELL_WIDTH} relative z-10 flex items-start gap-8 px-5 ${
             active === SITE_KEY ? "py-5" : "py-10"
           }`}
         >

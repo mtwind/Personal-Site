@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo } from "react";
 
 import {
   adIconUrl,
@@ -12,6 +12,7 @@ import {
   type AdSlot,
 } from "@/lib/ad-targeting";
 import { useMatch } from "./match-shell";
+import { useHoverDisclosure } from "./use-hover-disclosure";
 
 /** The viewport the rail needs; shared by the layout and the reporter. */
 export const RAIL_QUERY = "(min-width: 1100px)";
@@ -171,11 +172,12 @@ function AdLogo({ ad, size = 28 }: { ad: Ad; size?: number }) {
  * disclosure can never go missing by being left blank.
  */
 function AdLabel({ ad, compact = false }: { ad: Ad; compact?: boolean }) {
-  const [open, setOpen] = useState(false);
+  const { open, ref, buttonProps, panelProps } =
+    useHoverDisclosure<HTMLSpanElement>();
   const noteId = useId();
 
   return (
-    <span className="relative inline-flex items-center gap-1">
+    <span ref={ref} className="relative inline-flex items-center gap-1">
       <span
         className={
           compact
@@ -187,8 +189,7 @@ function AdLabel({ ad, compact = false }: { ad: Ad; compact?: boolean }) {
       </span>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
+        {...buttonProps}
         aria-controls={noteId}
         aria-label="Why this ad?"
         className="cursor-pointer rounded-full p-0.5 text-[#5f6368] transition-colors hover:bg-[#f1f3f4] hover:text-[#202124]"
@@ -210,6 +211,7 @@ function AdLabel({ ad, compact = false }: { ad: Ad; compact?: boolean }) {
         <span
           id={noteId}
           role="note"
+          {...panelProps}
           className="absolute top-full left-0 z-20 mt-1.5 w-60 rounded-lg border border-[#dadce0] bg-white p-3 text-[12px] leading-5 font-normal whitespace-pre-line text-[#5f6368] normal-case shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
         >
           {ad.infoText || DEFAULT_AD_INFO}

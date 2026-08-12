@@ -54,6 +54,11 @@ export function EntryView({
 
   return (
     <article>
+      {/* Same place it sits on the home page: the top. An entry page has
+          no search field of its own, so "above the search bar" here means
+          above the entry. */}
+      <FeedbackStrip />
+
       <p className="text-[11px] tracking-[0.14em] text-[#5f6368] uppercase">
         {KIND_LABEL[target.kind]}
       </p>
@@ -98,8 +103,6 @@ export function EntryView({
           .join(" ")}
       />
 
-      {/* Where reading an entry actually ends. */}
-      <FeedbackStrip />
     </article>
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId } from "react";
 
 import { KIND_LABEL, type ReferenceTarget } from "@/lib/match-references";
 import type { SearchJumpLink } from "@/lib/match-search";
 import { targetHref } from "@/lib/match-tabs";
 import { MatchRichText } from "./match-rich-text";
 import { useMatch } from "./match-shell";
+import { useHoverDisclosure } from "./use-hover-disclosure";
 
 interface ResultRowProps {
   target: ReferenceTarget;
@@ -169,15 +170,15 @@ function AboutThisResult({
   terms: string[];
   featured: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, ref, buttonProps, panelProps } =
+    useHoverDisclosure<HTMLDivElement>();
   const panelId = useId();
 
   return (
-    <div className="relative shrink-0">
+    <div ref={ref} className="relative shrink-0">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
+        {...buttonProps}
         aria-controls={panelId}
         aria-label="About this result"
         className={`cursor-pointer rounded-full p-1 text-[#5f6368] transition-colors hover:bg-[#f1f3f4] hover:text-[#202124] ${
@@ -195,6 +196,7 @@ function AboutThisResult({
         <div
           id={panelId}
           role="note"
+          {...panelProps}
           className="absolute top-full right-0 z-30 mt-1.5 w-72 rounded-xl border border-[#dadce0] bg-white p-4 text-left shadow-[0_1px_3px_rgba(60,64,67,0.3),0_4px_8px_3px_rgba(60,64,67,0.15)]"
         >
           <p className="text-[13px] font-medium text-[#202124]">About this result</p>

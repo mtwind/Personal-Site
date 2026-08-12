@@ -23,6 +23,12 @@ const KEY = "match-feedback";
 export interface FeedbackVisit {
   /** The row this visit started, once a role has been tapped. */
   id: string | null;
+  /**
+   * The role that was tapped. Remembered as well as stored, because it
+   * decides which questions come next — and the dialog on the way out
+   * has to reach the same answer as the strip that asked first.
+   */
+  role: string | null;
   /** True once the note-and-call half has been answered or waved off. */
   done: boolean;
   /** True when the reader closed the prompt instead of answering. */
@@ -30,7 +36,12 @@ export interface FeedbackVisit {
 }
 
 /** What the server renders from: a visit that hasn't said anything yet. */
-const NOTHING_YET: FeedbackVisit = { id: null, done: false, dismissed: false };
+const NOTHING_YET: FeedbackVisit = {
+  id: null,
+  role: null,
+  done: false,
+  dismissed: false,
+};
 
 const listeners = new Set<() => void>();
 let snapshot: FeedbackVisit | null = null;
@@ -43,6 +54,7 @@ function load(): FeedbackVisit {
     const visit = parsed as Partial<FeedbackVisit>;
     return {
       id: typeof visit.id === "string" ? visit.id : null,
+      role: typeof visit.role === "string" ? visit.role : null,
       done: visit.done === true,
       dismissed: visit.dismissed === true,
     };

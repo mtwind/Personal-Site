@@ -296,9 +296,29 @@ export const feedbackSubmissions = pgTable("feedback_submissions", {
   source: text("source").notNull().default("exit_form"),
   /** 'recruiter' | 'hiring_manager' | 'googler' | 'other' */
   role: text("role"),
+  /**
+   * Free text, because a team name is not a list anyone could write
+   * down in advance — "Search Quality", "Ads Privacy", a codename only
+   * used internally. Only asked of hiring managers and Googlers.
+   */
+  team: text("team"),
+  /**
+   * One of `GOOGLE_PRODUCT_AREAS`, stored as its label rather than a
+   * key. Google reorganises its product areas every couple of years,
+   * and a stored label still reads correctly afterwards while a stored
+   * key would point at a list entry that had moved.
+   */
+  productArea: text("product_area"),
   improvementNote: text("improvement_note"),
   wantsCall: boolean("wants_call").notNull().default(false),
   visitorEmail: text("visitor_email"),
+  /**
+   * Whatever they were willing to leave — an email, a LinkedIn URL, an
+   * internal handle. Free text rather than an email column because the
+   * ask is "any contact info", and refusing a LinkedIn profile for not
+   * being an address would be the wrong trade.
+   */
+  contactInfo: text("contact_info"),
   /** Google Calendar event id once Phase 3 booking exists. */
   bookedEventId: text("booked_event_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
