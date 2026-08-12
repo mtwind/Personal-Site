@@ -9,12 +9,14 @@ import {
   resolveFeatured,
   type FeaturedEntry,
 } from "@/lib/match-featured";
+import type { LocationPin } from "@/lib/location-pins";
 import { FILTER_KINDS, filterFromParam } from "@/lib/match-search";
 import type { RelatedQuestion } from "@/lib/questions-data";
 import { DoodleMark } from "./doodle-mark";
 import { ExitDialog } from "./exit-dialog";
 import { FeedbackStrip } from "./feedback-strip";
 import { FilterTabs, TAB_LABEL } from "./filter-tabs";
+import { LocationPreferences } from "./location-preferences";
 import { MatchRichText } from "./match-rich-text";
 import { CARD, FOUR_COLOR_GRADIENT, useMatch } from "./match-shell";
 import { MatchSearchBar } from "./search-bar";
@@ -32,6 +34,10 @@ interface HomeViewProps {
   featured: FeaturedEntry[];
   /** Authored questions, for the block under the results. */
   questions: RelatedQuestion[];
+  /** Places worth being placed, for the map. Empty hides the section. */
+  locationPins: LocationPin[];
+  /** Maps key, resolved on the server; null draws the places as a list. */
+  mapsApiKey: string | null;
   resumeUrl: string | null;
   meetingHref: string | null;
 }
@@ -54,6 +60,8 @@ export function HomeView({
   intro,
   featured,
   questions,
+  locationPins,
+  mapsApiKey,
   resumeUrl,
   meetingHref,
 }: HomeViewProps) {
@@ -158,6 +166,10 @@ export function HomeView({
               </ul>
             </section>
           ) : null}
+
+          {/* Under the profile rather than above it: a reader wants to
+              know what he's done before they care where he'd do it. */}
+          <LocationPreferences pins={locationPins} mapsApiKey={mapsApiKey} />
 
           <div className="mt-8 space-y-4">
             {resumeUrl ? (

@@ -44,6 +44,17 @@ const serverEnvSchema = z.object({
    * without it hashes are guessable from an IP, so set it in production.
    */
   IP_HASH_SALT: z.string().optional(),
+  /**
+   * Maps JavaScript API key — optional; without it the location section
+   * lists the places instead of drawing them.
+   *
+   * Read on the server and handed to the map as a prop, so it only ships
+   * with the two pages that draw one rather than being inlined into
+   * every bundle. That is a smaller surface, not a secret: a JS map is
+   * loaded by the browser, so this key is public wherever a map renders
+   * and has to be fenced with an HTTP-referrer restriction instead.
+   */
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 
 function formatEnvError(error: z.ZodError): string {
@@ -85,6 +96,7 @@ export function getServerEnv(): z.infer<typeof serverEnvSchema> {
     NOTIFY_EMAIL: process.env.NOTIFY_EMAIL,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     IP_HASH_SALT: process.env.IP_HASH_SALT,
+    GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
   });
   if (!result.success) {
     throw new Error(formatEnvError(result.error));

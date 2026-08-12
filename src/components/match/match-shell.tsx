@@ -286,6 +286,7 @@ export function MatchShell({
                     { href: "/admin/pages", label: "Pages" },
                     { href: "/admin/questions", label: "Q&A" },
                     { href: "/admin/ads", label: "Ads" },
+                    { href: "/admin/locations", label: "Locations" },
                     { href: "/admin/search-console", label: "Searches" },
                     { href: "/admin/feedback", label: "Feedback" },
                     { href: `${base}?edit=1`, label: "Edit page" },

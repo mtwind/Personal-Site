@@ -77,6 +77,7 @@ Copy the values from the old machine's `.env.local`, or re-fetch them:
 | `DATABASE_URL` | Dashboard → Connect → **Session pooler** URI (port 5432). MUST be a `*.pooler.supabase.com` host — the direct `db.<ref>.supabase.co` host is IPv6-only and hangs on IPv4 networks |
 | `BRANDFETCH_CLIENT_ID` | brandfetch.com developer portal (company autocomplete; optional — manual entry works without it) |
 | `RESEND_API_KEY` / `RESEND_FROM` / `NOTIFY_EMAIL` | resend.com (optional — feedback emails; submissions store in DB regardless) |
+| `GOOGLE_MAPS_API_KEY` | Google Cloud → Credentials, with Maps JavaScript API enabled (+ Geocoding API for the admin's "Find it" lookup). Optional — without it the location section lists the places instead of mapping them. A JS map loads in the browser, so this key IS public on the pages that draw one: restrict it by HTTP referrer |
 
 **The secret team-matching page URL** is intentionally not written here.
 Find it by signing in on the homepage — a four-dot "Google" pill appears
@@ -88,6 +89,7 @@ which prints the existing URL.
 - `src/app/page.tsx` — homepage (server): data load, edit-mode cookie, ghost, header
 - `src/app/match/[slug]/page.tsx` — hidden page route (404s wrong slugs, noindex)
 - `src/app/admin/feedback/page.tsx` — editor-only feedback list (404 otherwise)
+- `src/app/admin/locations/page.tsx` — editor-only location pins: the map that renders at the foot of the team-matching home page, edited on the same map (click to place)
 - `src/app/api/skills/search` + `src/app/api/companies/search` — autocomplete endpoints
 - `src/components/profile/*` — public view components (E3 styled)
 - `src/components/edit/*` — edit-mode forms, pickers, uploaders

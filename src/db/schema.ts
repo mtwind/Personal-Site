@@ -1,6 +1,7 @@
 import {
   boolean,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -465,6 +466,47 @@ export const adEvents = pgTable(
     // The stats view groups by ad; the write path counts by caller.
     index("ad_events_ad_kind_idx").on(table.adId, table.kind),
     index("ad_events_ip_created_idx").on(table.ipHash, table.createdAt),
+  ],
+);
+
+/**
+ * Where the owner would like to be placed, as pins on a map of the US.
+ *
+ * A team-matching conversation reaches "and where do you want to sit?"
+ * within a minute, and the honest answer is a shape rather than a list:
+ * some cities are a yes for reasons worth saying out loud, others are a
+ * yes with a caveat. So each pin carries its own note — the reason,
+ * which is the part a ranked list of city names throws away — and an
+ * optional rank that colours it on the map.
+ *
+ * `priority` is nullable because ranking is optional, and it is not
+ * unique because two cities can be equally wanted. Lower is stronger;
+ * `PIN_TIERS` in `lib/location-pins` names the levels and holds their
+ * colours, so the map's legend and the admin form always agree.
+ */
+export const locationPins = pgTable(
+  "location_pins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** What the pin is called, e.g. "Mountain View, CA". */
+    label: text("label").notNull(),
+    /** The reason, shown in the box that opens on hover. */
+    note: text("note").notNull().default(""),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    /** 1 = strongest. Null is an unranked pin — wanted, simply not placed. */
+    priority: integer("priority"),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("location_pins_active_sort_idx").on(table.active, table.sortOrder),
   ],
 );
 

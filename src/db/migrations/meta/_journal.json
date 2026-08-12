@@ -176,6 +176,20 @@
       "when": 1786512512802,
       "tag": "0024_feature_this_website",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786518200567,
+      "tag": "0025_location_pins",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1786518200568,
+      "tag": "0026_location_pins_rls",
+      "breakpoints": true
     }
   ]
 }

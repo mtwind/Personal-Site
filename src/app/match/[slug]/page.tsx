@@ -4,6 +4,7 @@ import { HomeView } from "@/components/match/home-view";
 import { MatchEditorForm } from "@/components/match/match-editor-form";
 import { getAuthState } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
+import { getActiveLocationPins } from "@/lib/locations-data";
 import { getMatchContext } from "@/lib/match-index";
 import { getActiveQuestions } from "@/lib/questions-data";
 
@@ -13,13 +14,15 @@ import { getActiveQuestions } from "@/lib/questions-data";
  * can't back out of — and so does the way in to every other page.
  */
 export default async function MatchHome(props: PageProps<"/match/[slug]">) {
-  const [{ slug }, search, context, auth, questions] = await Promise.all([
-    props.params,
-    props.searchParams,
-    getMatchContext(),
-    getAuthState(),
-    getActiveQuestions(),
-  ]);
+  const [{ slug }, search, context, auth, questions, locationPins] =
+    await Promise.all([
+      props.params,
+      props.searchParams,
+      getMatchContext(),
+      getAuthState(),
+      getActiveQuestions(),
+      getActiveLocationPins(),
+    ]);
 
   if (!context || context.page.slug !== slug) notFound();
 
@@ -55,6 +58,10 @@ export default async function MatchHome(props: PageProps<"/match/[slug]">) {
       intro={page.intro}
       featured={context.featured}
       questions={questions}
+      locationPins={locationPins}
+      // Same reasoning as `aiEnabled`: resolved here so a site without a
+      // key never asks the browser to load a map it can't draw.
+      mapsApiKey={getServerEnv().GOOGLE_MAPS_API_KEY ?? null}
       resumeUrl={page.resumeUrl}
       meetingHref={meetingHref}
     />

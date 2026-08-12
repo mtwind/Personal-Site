@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { PRODUCT_AREA_VALUES } from "@/lib/google-product-areas";
+import { MAX_PRIORITY } from "@/lib/location-pins";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -410,6 +411,59 @@ export function parseAdForm(formData: FormData) {
     // Checkbox groups post nothing when every box is cleared, which the
     // schema then rejects — a placement-less ad can't run anywhere.
     slots: formData.getAll("slots"),
+    active: formData.get("active") === "on",
+    sortOrder: Number.isFinite(order) ? order : 0,
+  });
+}
+
+/**
+ * One pin on the location map.
+ *
+ * The note may be empty — a place worth pinning is worth pinning before
+ * the sentence explaining it has been written — but the coordinates
+ * can't be, which is why they arrive as numbers-or-null rather than as
+ * whatever `Number("")` produced.
+ */
+export const locationPinSchema = z.object({
+  id: z.uuid().nullable(),
+  label: z.string().trim().min(1, "Name the place").max(120),
+  note: z.string().trim().max(1000),
+  lat: z
+    .number("Set the latitude — click the map or use “Find it”")
+    .min(-90, "Latitude runs from -90 to 90")
+    .max(90, "Latitude runs from -90 to 90"),
+  lng: z
+    .number("Set the longitude — click the map or use “Find it”")
+    .min(-180, "Longitude runs from -180 to 180")
+    .max(180, "Longitude runs from -180 to 180"),
+  priority: z.number().int().min(1).max(MAX_PRIORITY).nullable(),
+  active: z.boolean(),
+  sortOrder: z.number().int().min(0).max(999),
+});
+
+export type LocationPinInput = z.infer<typeof locationPinSchema>;
+
+/** A coordinate field's text → a number, or null when it isn't one. */
+function coordinate(value: FormDataEntryValue | null): number | null {
+  const raw = emptyToNull(value);
+  if (raw === null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function parseLocationPinForm(formData: FormData) {
+  const priority = emptyToNull(formData.get("priority"));
+  const order = Number(formData.get("sortOrder"));
+
+  return locationPinSchema.safeParse({
+    id: emptyToNull(formData.get("id")),
+    label: requiredString(formData.get("label")),
+    note: requiredString(formData.get("note")),
+    lat: coordinate(formData.get("lat")),
+    lng: coordinate(formData.get("lng")),
+    // The select's empty option is "no ranking", which is a real answer
+    // rather than a missing one.
+    priority: priority === null ? null : Number(priority),
     active: formData.get("active") === "on",
     sortOrder: Number.isFinite(order) ? order : 0,
   });
