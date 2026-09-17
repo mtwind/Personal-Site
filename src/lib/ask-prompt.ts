@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SitePage } from "@/lib/pages-data";
+import type { GroundingPage } from "@/lib/pages-data";
 import type { MatchReferenceIndex } from "@/lib/match-references";
 
 /**
@@ -17,7 +17,7 @@ export function buildProfileCorpus(
   index: MatchReferenceIndex,
   page: { headline: string; intro: string },
   /** Private + published pages. Drafts never get this far. */
-  sitePages: SitePage[] = [],
+  sitePages: GroundingPage[] = [],
 ): string {
   const skillName = new Map(index.skills.map((s) => [s.id, s.name]));
   const lines: string[] = [];

@@ -16,7 +16,7 @@
  */
 import { formatDateRange } from "@/lib/format";
 import { markdownHeadings } from "@/lib/match-markdown";
-import type { SitePage } from "@/lib/pages-data";
+import type { GroundingPage } from "@/lib/pages-data";
 import type { ProfileData } from "@/lib/profile-data";
 import { skillIconUrl, type Skill } from "@/lib/skill-icon";
 
@@ -256,7 +256,7 @@ export function uniqueSlugger(): (value: string) => string {
 export function buildReferenceIndex(
   profile: ProfileData,
   /** Every non-draft page; only published ones become entries. */
-  sitePages: SitePage[] = [],
+  sitePages: GroundingPage[] = [],
 ): MatchReferenceIndex {
   const courseSlug = uniqueSlugger();
   const courses: ReferenceCourse[] = profile.courses.map((course) => ({

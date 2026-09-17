@@ -96,6 +96,7 @@ which prints the existing URL.
 - `src/components/match/*` — Google page shell, editor form, exit dialog
 - `src/lib/actions/*` — server actions (Zod-validated; `runMutation` = editor gate + revalidate)
 - `src/lib/storage.ts` — Supabase Storage helpers (media + resume buckets)
+- `src/lib/content-cache.ts` — cross-request cache for site content (profile, hidden page, grounding pages, ads); every `runMutation` expires it
 - `src/db/schema.ts` + `src/db/migrations/` — Drizzle schema, SQL migrations incl. RLS
 - `scripts/` — `setup-storage`, `seed-team-match`, `verify-db`, `build-skill-catalog`
 - `docs/PLAN.md` — original architecture/plan document
@@ -169,6 +170,6 @@ dashboard settings:
   missing-verifier error. Keep Vercel's apex → `www` redirect in place so
   users only ever sit on one host.
 
-`src/middleware.ts` forwards a stray `/?code=...` to `/auth/callback` as a
+`src/proxy.ts` forwards a stray `/?code=...` to `/auth/callback` as a
 safety net, and `/auth/error?reason=...` surfaces the exchange failure
 message instead of a generic string.

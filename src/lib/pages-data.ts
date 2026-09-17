@@ -7,6 +7,8 @@ import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@/db";
 import { pageSkills, pages, skills } from "@/db/schema";
+import { cachedContent } from "@/lib/content-cache";
+import type { Serialized } from "@/lib/serialized";
 import type { Skill } from "@/lib/skill-icon";
 
 type PageRow = InferSelectModel<typeof pages>;
@@ -15,6 +17,9 @@ type PageRow = InferSelectModel<typeof pages>;
 export interface SitePage extends PageRow {
   skills: Skill[];
 }
+
+/** A page as the content cache hands it back. */
+export type GroundingPage = Serialized<SitePage>;
 
 export type { PageVisibility } from "@/lib/page-visibility";
 
@@ -54,11 +59,18 @@ export const getSitePages = cache(async (): Promise<SitePage[]> => {
  * separate from the admin query so a draft can never reach the prompt
  * by way of someone reusing the wrong helper.
  */
-export const getGroundingPages = cache(async (): Promise<SitePage[]> => {
-  const rows = await db
-    .select()
-    .from(pages)
-    .where(ne(pages.visibility, "draft"))
-    .orderBy(asc(pages.sortOrder), desc(pages.createdAt));
-  return withSkills(rows);
-});
+const loadGroundingPages = cachedContent(
+  "grounding-pages",
+  async (): Promise<SitePage[]> => {
+    const rows = await db
+      .select()
+      .from(pages)
+      .where(ne(pages.visibility, "draft"))
+      .orderBy(asc(pages.sortOrder), desc(pages.createdAt));
+    return withSkills(rows);
+  },
+);
+
+export const getGroundingPages = cache(
+  (): Promise<GroundingPage[]> => loadGroundingPages(),
+);

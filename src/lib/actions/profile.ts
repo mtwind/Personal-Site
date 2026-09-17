@@ -13,6 +13,8 @@ import {
   projectSkills,
   projects,
 } from "@/db/schema";
+import { companyFaviconUrl } from "@/lib/company-favicon";
+import { persistCompanyLogo } from "@/lib/company-logo";
 import {
   deleteStoredFileByUrl,
   uploadImage,
@@ -155,9 +157,22 @@ function withLogoFallback<
   T extends { companyDomain: string | null; companyLogoUrl: string | null },
 >(data: T): T {
   if (data.companyLogoUrl || !data.companyDomain) return data;
+  return { ...data, companyLogoUrl: companyFaviconUrl(data.companyDomain) };
+}
+
+/**
+ * The logo as it should be stored: a link from the company search is
+ * copied into our own storage, since the CDN it points at retires its
+ * links; one it reports gone is dropped, so the favicon fallback applies
+ * instead of a URL that is already dead.
+ */
+async function withStoredLogo<
+  T extends { companyDomain: string | null; companyLogoUrl: string | null },
+>(data: T): Promise<T> {
+  if (!data.companyLogoUrl) return data;
   return {
     ...data,
-    companyLogoUrl: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(data.companyDomain)}&sz=128`,
+    companyLogoUrl: await persistCompanyLogo(data.companyLogoUrl),
   };
 }
 
@@ -172,7 +187,7 @@ export async function createExperience(
   return runMutation(async () => {
     const inserted = await db
       .insert(experiences)
-      .values(withLogoFallback(values))
+      .values(withLogoFallback(await withStoredLogo(values)))
       .returning({ id: experiences.id });
     await syncSkills("experience", inserted[0].id, skillSelections);
   });
@@ -192,7 +207,10 @@ export async function updateExperience(
   return runMutation(async () => {
     await db
       .update(experiences)
-      .set({ ...withLogoFallback(values), updatedAt: new Date() })
+      .set({
+        ...withLogoFallback(await withStoredLogo(values)),
+        updatedAt: new Date(),
+      })
       .where(eq(experiences.id, id.data));
     await syncSkills("experience", id.data, skillSelections);
   });

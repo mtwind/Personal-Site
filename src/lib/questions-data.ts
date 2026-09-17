@@ -7,6 +7,7 @@ import { asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { relatedQuestions } from "@/db/schema";
+import { cachedContent } from "@/lib/content-cache";
 
 export type RelatedQuestionRow = InferSelectModel<typeof relatedQuestions>;
 
@@ -33,7 +34,8 @@ export async function getAllQuestions(): Promise<RelatedQuestionRow[]> {
  * the same visit, and a question list is small enough that shipping it
  * whole beats asking the server which ones match.
  */
-export const getActiveQuestions = cache(
+const loadActiveQuestions = cachedContent(
+  "active-questions",
   async (): Promise<RelatedQuestion[]> => {
     const rows = await db
       .select({
@@ -48,4 +50,8 @@ export const getActiveQuestions = cache(
 
     return rows;
   },
+);
+
+export const getActiveQuestions = cache(
+  (): Promise<RelatedQuestion[]> => loadActiveQuestions(),
 );

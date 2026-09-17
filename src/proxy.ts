@@ -7,7 +7,7 @@ import {
 } from "@/lib/match-visit";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Safety net: when an OAuth `redirectTo` isn't in the Supabase project's
   // redirect allow list, Supabase falls back to the Site URL and drops the
   // user on `/?code=...`, where nothing exchanges the code. Forward those
