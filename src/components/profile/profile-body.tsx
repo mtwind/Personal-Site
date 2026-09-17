@@ -28,7 +28,7 @@ export function ProfileBody({ profile, isEditor }: ProfileBodyProps) {
   return (
     <>
       <AboutSection about={profile.about} />
-      <ExperienceSection experiences={profile.experiences} />
+      <ExperienceSection companies={profile.companies} />
       {/* Match-only projects are dropped here rather than in the query:
           the same profile builds the team-matching index, which is the
           one place they are meant to show. Filtering on the read path

@@ -12,7 +12,7 @@ export function EditableProfile({ profile }: { profile: ProfileData }) {
   return (
     <>
       <EditableAbout about={profile.about} />
-      <EditableExperiences experiences={profile.experiences} />
+      <EditableExperiences companies={profile.companies} />
       <EditableProjects projects={profile.projects} />
       <EditableCoursework courses={profile.courses} />
       <EditableContact contact={profile.contact} />

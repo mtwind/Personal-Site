@@ -21,8 +21,8 @@ export type UploadUrlResult =
 
 /**
  * Upload a company logo and return its URL. Unlike media uploads this
- * attaches to nothing — the experience form carries the URL and saves
- * it with the row, so it works for not-yet-created experiences too.
+ * attaches to nothing — the company form carries the URL and saves it
+ * with the row, so it works for not-yet-created companies too.
  */
 export async function uploadCompanyLogo(
   formData: FormData,

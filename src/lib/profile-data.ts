@@ -8,6 +8,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { db } from "@/db";
 import {
   about,
+  companies,
   contact,
   courses,
   experienceSkills,
@@ -25,6 +26,8 @@ import type { Skill } from "@/lib/skill-icon";
 // the strings they were serialized to (see `Serialized`).
 export type About = Serialized<InferSelectModel<typeof about>>;
 export type Contact = Serialized<InferSelectModel<typeof contact>>;
+export type Company = Serialized<InferSelectModel<typeof companies>>;
+/** One role at a company. */
 export type Experience = Serialized<InferSelectModel<typeof experiences>>;
 export type Project = Serialized<InferSelectModel<typeof projects>>;
 export type Course = Serialized<InferSelectModel<typeof courses>>;
@@ -33,6 +36,11 @@ export type MediaItem = Serialized<InferSelectModel<typeof media>>;
 export interface ExperienceWithRelations extends Experience {
   skills: Skill[];
   media: MediaItem[];
+}
+
+/** A company with every role held there, most recent first. */
+export interface CompanyWithRoles extends Company {
+  roles: ExperienceWithRelations[];
 }
 
 export interface ProjectWithRelations extends Project {
@@ -46,7 +54,8 @@ export interface CourseWithProjects extends Course {
 
 export interface ProfileData {
   about: About | null;
-  experiences: ExperienceWithRelations[];
+  /** Employers in display order, each carrying its roles. */
+  companies: CompanyWithRoles[];
   /** Standalone projects only — course projects live under `courses`. */
   projects: ProjectWithRelations[];
   courses: CourseWithProjects[];
@@ -73,6 +82,25 @@ function mediaFor(items: MediaItem[], ownerType: string, ownerId: string) {
 }
 
 /**
+ * Companies read like a résumé: the one holding the most recent role
+ * first, with an explicit sort order winning where the editor set one.
+ * A company with no roles yet sorts last — it is still being filled in.
+ */
+function orderCompanies(list: CompanyWithRoles[]): CompanyWithRoles[] {
+  const latestStart = (company: CompanyWithRoles) =>
+    company.roles.reduce(
+      (latest, role) => (role.startDate > latest ? role.startDate : latest),
+      "",
+    );
+  return [...list].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      latestStart(b).localeCompare(latestStart(a)) ||
+      a.name.localeCompare(b.name),
+  );
+}
+
+/**
  * Load everything the profile page renders, in parallel.
  *
  * Reads go through Drizzle (direct Postgres) rather than the Supabase
@@ -88,6 +116,7 @@ const loadProfileData = cachedContent(
   async (): Promise<ProfileData> => {
     const [
       aboutRows,
+      companyRows,
       experienceRows,
       projectRows,
       courseRows,
@@ -97,6 +126,7 @@ const loadProfileData = cachedContent(
       mediaRows,
     ] = await Promise.all([
       db.select().from(about).limit(1),
+      db.select().from(companies).orderBy(asc(companies.sortOrder)),
       db
         .select()
         .from(experiences)
@@ -135,14 +165,21 @@ const loadProfileData = cachedContent(
       media: mediaFor(mediaRows, "project", proj.id),
     }));
 
+    const roles = experienceRows.map((exp) => ({
+      ...exp,
+      skills: skillsFor(expSkillRows, exp.id),
+      media: mediaFor(mediaRows, "experience", exp.id),
+    }));
+
     return {
       about: aboutRows[0] ?? null,
       contact: contactRows[0] ?? null,
-      experiences: experienceRows.map((exp) => ({
-        ...exp,
-        skills: skillsFor(expSkillRows, exp.id),
-        media: mediaFor(mediaRows, "experience", exp.id),
-      })),
+      companies: orderCompanies(
+        companyRows.map((company) => ({
+          ...company,
+          roles: roles.filter((role) => role.companyId === company.id),
+        })),
+      ),
       projects: allProjects.filter((proj) => proj.courseId === null),
       courses: courseRows.map((course) => ({
         ...course,

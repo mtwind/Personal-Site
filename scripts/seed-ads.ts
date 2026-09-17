@@ -19,7 +19,7 @@ import postgres from "postgres";
 
 import { eq } from "drizzle-orm";
 
-import { ads, experiences } from "../src/db/schema";
+import { ads, companies } from "../src/db/schema";
 
 config({ path: ".env.local" });
 
@@ -847,9 +847,9 @@ async function main(): Promise<void> {
   // stores for its experience entry. Reusing that keeps the two places
   // it appears showing the same mark.
   const [pipelineRole] = await db
-    .select({ logo: experiences.companyLogoUrl })
-    .from(experiences)
-    .where(eq(experiences.companyDomain, "pipeline-usa.com"))
+    .select({ logo: companies.logoUrl })
+    .from(companies)
+    .where(eq(companies.domain, "pipeline-usa.com"))
     .limit(1);
 
   const existing = await db

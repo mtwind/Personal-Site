@@ -71,13 +71,19 @@ function parseJsonField(value: FormDataEntryValue | null): unknown {
   }
 }
 
-export const experienceSchema = z.object({
-  companyName: z.string().min(1, "Company is required").max(200),
-  companyDomain: z
+/** An employer; roles nest under it. */
+export const companySchema = z.object({
+  name: z.string().min(1, "Company is required").max(200),
+  domain: z
     .string()
     .regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Invalid company domain")
     .nullable(),
-  companyLogoUrl: z.url("Invalid logo URL").nullable(),
+  logoUrl: z.url("Invalid logo URL").nullable(),
+});
+
+/** One role at a company. */
+export const experienceSchema = z.object({
+  companyId: z.uuid("Pick a company for this role"),
   title: z.string().min(1, "Title is required").max(200),
   headline: z.string().max(200),
   startDate: z.iso.date("Start date is required"),
@@ -131,6 +137,7 @@ export const idSchema = z.uuid();
 
 export type AboutInput = z.infer<typeof aboutSchema>;
 export type ContactInput = z.infer<typeof contactSchema>;
+export type CompanyInput = z.infer<typeof companySchema>;
 export type ExperienceInput = z.infer<typeof experienceSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
 export type CourseInput = z.infer<typeof courseSchema>;
@@ -170,11 +177,18 @@ export function parseContactForm(formData: FormData) {
   });
 }
 
+/** Field names are the company picker's, which posts all three. */
+export function parseCompanyForm(formData: FormData) {
+  return companySchema.safeParse({
+    name: requiredString(formData.get("companyName")),
+    domain: normalizeDomain(formData.get("companyDomain")),
+    logoUrl: emptyToNull(formData.get("companyLogoUrl")),
+  });
+}
+
 export function parseExperienceForm(formData: FormData) {
   return experienceSchema.safeParse({
-    companyName: requiredString(formData.get("companyName")),
-    companyDomain: normalizeDomain(formData.get("companyDomain")),
-    companyLogoUrl: emptyToNull(formData.get("companyLogoUrl")),
+    companyId: requiredString(formData.get("companyId")),
     title: requiredString(formData.get("title")),
     headline: requiredString(formData.get("headline")),
     startDate: normalizeMonth(formData.get("startDate")) ?? "",

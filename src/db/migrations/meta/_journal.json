@@ -190,6 +190,20 @@
       "when": 1786518200568,
       "tag": "0026_location_pins_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1789667140827,
+      "tag": "0027_companies",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1789667160868,
+      "tag": "0028_companies_rls",
+      "breakpoints": true
     }
   ]
 }
