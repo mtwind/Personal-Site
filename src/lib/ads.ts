@@ -7,6 +7,7 @@ import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@/db";
 import { adEvents, ads } from "@/db/schema";
+import { cachedContent } from "@/lib/content-cache";
 import type { Ad } from "@/lib/ad-targeting";
 
 export type AdRow = InferSelectModel<typeof ads>;
@@ -52,14 +53,20 @@ function toAd(row: AdRow): Ad {
  * would cost, and it lets a client-side view pick an ad for a query it
  * resolved itself without asking the server again.
  */
+const loadActiveAds = cachedContent("active-ads", async (): Promise<Ad[]> => {
+  const rows = await db
+    .select()
+    .from(ads)
+    .where(eq(ads.active, true))
+    .orderBy(asc(ads.sortOrder), asc(ads.createdAt));
+  return rows.map(toAd);
+});
+
 export const getActiveAds = cache(async (): Promise<Ad[]> => {
+  // The catch sits outside the cache so a failed read is retried next
+  // time rather than remembered as "no ads" for a minute.
   try {
-    const rows = await db
-      .select()
-      .from(ads)
-      .where(eq(ads.active, true))
-      .orderBy(asc(ads.sortOrder), asc(ads.createdAt));
-    return rows.map(toAd);
+    return await loadActiveAds();
   } catch (error: unknown) {
     // An unmigrated database shouldn't take the whole page down over a
     // decorative feature — run without ads instead.

@@ -8,6 +8,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from "react";
 
@@ -33,6 +34,7 @@ import {
 } from "@/lib/match-tabs";
 import { SHELL_WIDTH } from "./match-layout";
 import { VisitRecorder } from "./shortcut-tiles";
+import { SiteFrame } from "./site-frame";
 import { TabStrip } from "./tab-strip";
 
 export const GOOGLE_DOTS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853"];
@@ -233,6 +235,16 @@ export function MatchShell({
     [active, base, router],
   );
 
+  // The site tab is the one tab whose page can't be prefetched — it is a
+  // whole second document — so interest in it is the cue to start
+  // loading that document, ahead of the click.
+  const [siteWanted, setSiteWanted] = useState(false);
+  const onTabIntent = useCallback((key: string) => {
+    if (key === SITE_KEY) setSiteWanted(true);
+  }, []);
+
+  const onSite = active === SITE_KEY;
+
   return (
     <MatchContext.Provider value={context}>
       <div
@@ -304,7 +316,12 @@ export function MatchShell({
             </div>
           </header>
 
-          <TabStrip tabs={tabs} activeKey={active} onClose={onCloseTab} />
+          <TabStrip
+            tabs={tabs}
+            activeKey={active}
+            onClose={onCloseTab}
+            onIntent={onTabIntent}
+          />
         </div>
 
         {/* The site tab carries a whole website of its own, so it gets
@@ -319,17 +336,22 @@ export function MatchShell({
             column it was measured against taller. */}
         <div
           className={`${SHELL_WIDTH} relative z-10 flex items-start gap-8 px-5 ${
-            active === SITE_KEY ? "py-5" : "py-10"
+            onSite ? "py-5" : "py-10"
           }`}
         >
-          <main
-            className={`w-full min-w-0 ${
-              active === SITE_KEY ? "" : "max-w-3xl"
-            }`}
-          >
-            {children}
+          <main className={`w-full min-w-0 ${onSite ? "" : "max-w-3xl"}`}>
+            {/* The site route renders nothing of its own: the frame
+                below is the page, mounted once and shown when its tab
+                is in front, so switching to it never reloads the site
+                (see `SiteFrame`). */}
+            {onSite ? null : children}
+            <SiteFrame
+              active={onSite}
+              wanted={siteWanted}
+              ownerName={ownerName}
+            />
           </main>
-          {active === SITE_KEY ? null : rail}
+          {onSite ? null : rail}
         </div>
       </div>
     </MatchContext.Provider>

@@ -17,14 +17,18 @@ import {
   projects,
   skills,
 } from "@/db/schema";
+import { cachedContent } from "@/lib/content-cache";
+import type { Serialized } from "@/lib/serialized";
 import type { Skill } from "@/lib/skill-icon";
 
-export type About = InferSelectModel<typeof about>;
-export type Contact = InferSelectModel<typeof contact>;
-export type Experience = InferSelectModel<typeof experiences>;
-export type Project = InferSelectModel<typeof projects>;
-export type Course = InferSelectModel<typeof courses>;
-export type MediaItem = InferSelectModel<typeof media>;
+// Row types as they come back from the content cache: timestamps may be
+// the strings they were serialized to (see `Serialized`).
+export type About = Serialized<InferSelectModel<typeof about>>;
+export type Contact = Serialized<InferSelectModel<typeof contact>>;
+export type Experience = Serialized<InferSelectModel<typeof experiences>>;
+export type Project = Serialized<InferSelectModel<typeof projects>>;
+export type Course = Serialized<InferSelectModel<typeof courses>>;
+export type MediaItem = Serialized<InferSelectModel<typeof media>>;
 
 export interface ExperienceWithRelations extends Experience {
   skills: Skill[];
@@ -75,71 +79,79 @@ function mediaFor(items: MediaItem[], ownerType: string, ownerId: string) {
  * client: this content is public, so RLS adds nothing on reads — RLS
  * protects writes, which go through authenticated Supabase clients.
  *
- * Wrapped in React cache() so generateMetadata + page share one load
- * per request.
+ * Cached across requests — the profile is read by every route under the
+ * team-matching page and changes only when the owner edits it — and in
+ * React cache() so generateMetadata + page share one load per request.
  */
-export const getProfileData = cache(async (): Promise<ProfileData> => {
-  const [
-    aboutRows,
-    experienceRows,
-    projectRows,
-    courseRows,
-    contactRows,
-    expSkillRows,
-    projSkillRows,
-    mediaRows,
-  ] = await Promise.all([
-    db.select().from(about).limit(1),
-    db
-      .select()
-      .from(experiences)
-      .orderBy(asc(experiences.sortOrder), desc(experiences.startDate)),
-    db
-      .select()
-      .from(projects)
-      .orderBy(asc(projects.sortOrder), desc(projects.startDate)),
-    db
-      .select()
-      .from(courses)
-      .orderBy(asc(courses.sortOrder), asc(courses.courseNumber)),
-    db.select().from(contact).limit(1),
-    db
-      .select({
-        ownerId: experienceSkills.experienceId,
-        sortOrder: experienceSkills.sortOrder,
-        skill: skills,
-      })
-      .from(experienceSkills)
-      .innerJoin(skills, eq(experienceSkills.skillId, skills.id)),
-    db
-      .select({
-        ownerId: projectSkills.projectId,
-        sortOrder: projectSkills.sortOrder,
-        skill: skills,
-      })
-      .from(projectSkills)
-      .innerJoin(skills, eq(projectSkills.skillId, skills.id)),
-    db.select().from(media),
-  ]);
+const loadProfileData = cachedContent(
+  "profile",
+  async (): Promise<ProfileData> => {
+    const [
+      aboutRows,
+      experienceRows,
+      projectRows,
+      courseRows,
+      contactRows,
+      expSkillRows,
+      projSkillRows,
+      mediaRows,
+    ] = await Promise.all([
+      db.select().from(about).limit(1),
+      db
+        .select()
+        .from(experiences)
+        .orderBy(asc(experiences.sortOrder), desc(experiences.startDate)),
+      db
+        .select()
+        .from(projects)
+        .orderBy(asc(projects.sortOrder), desc(projects.startDate)),
+      db
+        .select()
+        .from(courses)
+        .orderBy(asc(courses.sortOrder), asc(courses.courseNumber)),
+      db.select().from(contact).limit(1),
+      db
+        .select({
+          ownerId: experienceSkills.experienceId,
+          sortOrder: experienceSkills.sortOrder,
+          skill: skills,
+        })
+        .from(experienceSkills)
+        .innerJoin(skills, eq(experienceSkills.skillId, skills.id)),
+      db
+        .select({
+          ownerId: projectSkills.projectId,
+          sortOrder: projectSkills.sortOrder,
+          skill: skills,
+        })
+        .from(projectSkills)
+        .innerJoin(skills, eq(projectSkills.skillId, skills.id)),
+      db.select().from(media),
+    ]);
 
-  const allProjects = projectRows.map((proj) => ({
-    ...proj,
-    skills: skillsFor(projSkillRows, proj.id),
-    media: mediaFor(mediaRows, "project", proj.id),
-  }));
+    const allProjects = projectRows.map((proj) => ({
+      ...proj,
+      skills: skillsFor(projSkillRows, proj.id),
+      media: mediaFor(mediaRows, "project", proj.id),
+    }));
 
-  return {
-    about: aboutRows[0] ?? null,
-    contact: contactRows[0] ?? null,
-    experiences: experienceRows.map((exp) => ({
-      ...exp,
-      skills: skillsFor(expSkillRows, exp.id),
-      media: mediaFor(mediaRows, "experience", exp.id),
-    })),
-    projects: allProjects.filter((proj) => proj.courseId === null),
-    courses: courseRows.map((course) => ({
-      ...course,
-      projects: allProjects.filter((proj) => proj.courseId === course.id),
-    })),
-  };
-});
+    return {
+      about: aboutRows[0] ?? null,
+      contact: contactRows[0] ?? null,
+      experiences: experienceRows.map((exp) => ({
+        ...exp,
+        skills: skillsFor(expSkillRows, exp.id),
+        media: mediaFor(mediaRows, "experience", exp.id),
+      })),
+      projects: allProjects.filter((proj) => proj.courseId === null),
+      courses: courseRows.map((course) => ({
+        ...course,
+        projects: allProjects.filter((proj) => proj.courseId === course.id),
+      })),
+    };
+  },
+);
+
+export const getProfileData = cache(
+  (): Promise<ProfileData> => loadProfileData(),
+);

@@ -19,21 +19,23 @@ export interface AuthState {
 export const getAuthState = cache(async (): Promise<AuthState> => {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verified locally against the project's cached signing keys where it
+  // can be (see the proxy's session refresh), so a signed-in visit
+  // doesn't wait on the auth server for every page it renders.
+  const { data, error } = await supabase.auth.getClaims();
+  const email = error ? null : data?.claims.email;
 
-  if (!user?.email) {
+  if (typeof email !== "string" || !email) {
     return { email: null, isEditor: false };
   }
 
   const { data: editor } = await supabase
     .from("editors")
     .select("id")
-    .eq("email", user.email)
+    .eq("email", email)
     .maybeSingle();
 
-  return { email: user.email, isEditor: editor !== null };
+  return { email, isEditor: editor !== null };
 });
 
 /** Throw unless the current user is an editor. Use in server actions. */

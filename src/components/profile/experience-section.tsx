@@ -1,5 +1,6 @@
 import type { ExperienceWithRelations } from "@/lib/profile-data";
 import { formatDateRange } from "@/lib/format";
+import { CompanyLogo } from "./company-logo";
 import { MediaList } from "./media-list";
 import { EmptyState, Section } from "./section";
 import { SkillBadgeList } from "./skill-badge";
@@ -9,11 +10,9 @@ function CompanyLine({ exp }: { exp: ExperienceWithRelations }) {
   const content = (
     <>
       {exp.companyLogoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <CompanyLogo
           src={exp.companyLogoUrl}
-          alt=""
-          aria-hidden
+          domain={exp.companyDomain}
           className="h-4 w-4 rounded-sm object-contain"
         />
       ) : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { HOME_KEY, SITE_KEY, type MatchTab } from "@/lib/match-tabs";
@@ -11,6 +11,12 @@ interface TabStripProps {
   /** Path of the page in front; always one of the tabs. */
   activeKey: string;
   onClose: (key: string) => void;
+  /**
+   * The reader is showing interest in a tab — hovering it, focusing it —
+   * without having clicked yet. What the shell does with that is its
+   * business; the strip just says which one.
+   */
+  onIntent?: (key: string) => void;
 }
 
 /**
@@ -22,7 +28,12 @@ interface TabStripProps {
  * a plain click switches pages in place. Tabs hold a workable width
  * rather than shrinking to nothing, so a crowded strip scrolls instead.
  */
-export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
+export function TabStrip({
+  tabs,
+  activeKey,
+  onClose,
+  onIntent,
+}: TabStripProps) {
   const activeRef = useRef<HTMLAnchorElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const [metrics, setMetrics] = useState({ left: 0, scroll: 0, client: 0 });
@@ -133,19 +144,11 @@ export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
                   aria-selected={isActive}
                   aria-current={isActive ? "page" : undefined}
                   title={tab.title}
+                  onPointerEnter={() => onIntent?.(tab.key)}
+                  onFocus={() => onIntent?.(tab.key)}
                   className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left"
                 >
-                  {tab.iconUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={tab.iconUrl}
-                      alt=""
-                      aria-hidden
-                      className="h-3.5 w-3.5 shrink-0"
-                    />
-                  ) : (
-                    <TabGlyph kind={tab.kind} />
-                  )}
+                  <TabFavicon tab={tab} />
                   <span
                     className={`truncate text-[12px] ${
                       isActive
@@ -205,6 +208,37 @@ export function TabStrip({ tabs, activeKey, onClose }: TabStripProps) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The tab's icon — or, while a click on it is still waiting on the
+ * server, a spinner in the icon's place, the way a browser tab's
+ * favicon turns into one while its page loads. Same box either way, so
+ * nothing shifts. Prefetched pages skip the pending state altogether.
+ */
+function TabFavicon({ tab }: { tab: MatchTab }) {
+  const { pending } = useLinkStatus();
+
+  if (pending) {
+    return (
+      <span
+        aria-hidden
+        className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-[#dadce0] border-t-[#1a73e8] motion-reduce:animate-none"
+      />
+    );
+  }
+
+  return tab.iconUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={tab.iconUrl}
+      alt=""
+      aria-hidden
+      className="h-3.5 w-3.5 shrink-0"
+    />
+  ) : (
+    <TabGlyph kind={tab.kind} />
   );
 }
 

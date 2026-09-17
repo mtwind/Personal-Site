@@ -1,15 +1,20 @@
 import "server-only";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { requireEditor } from "@/lib/auth";
+import { CONTENT_TAG } from "@/lib/content-cache";
 import { UserFacingError } from "@/lib/user-facing-error";
 import type { ActionResult } from "./validation";
 
 /**
  * Shared wrapper for every profile mutation: editor check, error
- * normalization, page revalidation. UserFacingError messages are
- * written for the user and pass through verbatim.
+ * normalization, cache expiry, page revalidation. UserFacingError
+ * messages are written for the user and pass through verbatim.
+ *
+ * `updateTag` rather than `revalidateTag`: the editor who just saved is
+ * about to look at the result, and stale-while-revalidate would show
+ * them the version they had before.
  */
 export async function runMutation(
   mutate: () => Promise<void>,
@@ -17,6 +22,7 @@ export async function runMutation(
   try {
     await requireEditor();
     await mutate();
+    updateTag(CONTENT_TAG);
     revalidatePath("/");
     return { ok: true };
   } catch (error: unknown) {
