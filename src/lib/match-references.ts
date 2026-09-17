@@ -60,6 +60,8 @@ export interface ReferenceProject {
 export interface ReferenceExperience {
   id: string;
   slug: string;
+  /** The employer; other roles held there share it. */
+  companyId: string;
   companyName: string;
   title: string;
   /** One-line description shown on preview cards. */
@@ -281,6 +283,12 @@ export function buildReferenceIndex(
     ...profile.courses.flatMap((course) => course.projects),
   ];
 
+  // Roles are pages of their own; the company travels with each one so a
+  // role reads "Software Engineer at Capital One" wherever it is named.
+  const allRoles = profile.companies.flatMap((company) =>
+    company.roles.map((role) => ({ ...role, company })),
+  );
+
   const skillsById = new Map<string, ReferenceSkill>();
   const skillSlug = uniqueSlugger();
   const collectSkills = (entries: readonly { skills: Skill[] }[]) => {
@@ -297,7 +305,7 @@ export function buildReferenceIndex(
     }
   };
   collectSkills(allProjects);
-  collectSkills(profile.experiences);
+  collectSkills(allRoles);
   collectSkills(sitePages);
 
   const projectSlug = uniqueSlugger();
@@ -325,10 +333,11 @@ export function buildReferenceIndex(
         : null,
       courseId: project.courseId,
     })),
-    experiences: profile.experiences.map((experience) => ({
+    experiences: allRoles.map((experience) => ({
       id: experience.id,
-      slug: experienceSlug(`${experience.title} ${experience.companyName}`),
-      companyName: experience.companyName,
+      slug: experienceSlug(`${experience.title} ${experience.company.name}`),
+      companyId: experience.company.id,
+      companyName: experience.company.name,
       title: experience.title,
       headline: experience.headline,
       dateRange: formatDateRange(experience.startDate, experience.endDate),
@@ -596,6 +605,17 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     return index.projects.filter((project) => project.courseId === courseId);
   }
 
+  /** The other roles held at the same company as the given one. */
+  function otherRolesAtCompany(experienceId: string): ReferenceExperience[] {
+    const source = experiencesById.get(experienceId);
+    if (!source) return [];
+    return index.experiences.filter(
+      (candidate) =>
+        candidate.id !== experienceId &&
+        candidate.companyId === source.companyId,
+    );
+  }
+
   /**
    * Skills ranked by how much work is tagged with them.
    *
@@ -635,6 +655,7 @@ export function createReferenceResolver(index: MatchReferenceIndex) {
     similarProjects,
     workUsingSkill,
     courseProjects,
+    otherRolesAtCompany,
     rankedSkills,
   };
 }

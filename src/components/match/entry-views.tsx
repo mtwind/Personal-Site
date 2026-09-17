@@ -184,6 +184,9 @@ function ProjectView({ project }: { project: ReferenceProject }) {
 }
 
 function ExperienceView({ experience }: { experience: ReferenceExperience }) {
+  const { resolver } = useMatch();
+  const otherRoles = resolver.otherRolesAtCompany(experience.id);
+
   return (
     <>
       <section className={CARD}>
@@ -214,6 +217,23 @@ function ExperienceView({ experience }: { experience: ReferenceExperience }) {
       </section>
 
       <TechStack skillIds={experience.skillIds} />
+
+      {otherRoles.length > 0 ? (
+        <EntryGroup title={`Other roles at ${experience.companyName}`}>
+          <ul className="space-y-2">
+            {otherRoles.map((role) => (
+              <li key={role.id}>
+                <PreviewCard
+                  target={{ kind: "experience", id: role.id }}
+                  title={role.title}
+                  headline={role.headline}
+                  note={role.dateRange}
+                />
+              </li>
+            ))}
+          </ul>
+        </EntryGroup>
+      ) : null}
     </>
   );
 }

@@ -32,6 +32,11 @@ delivery status is:
 - ✅ Month/year date pickers; dates stored pinned to the 1st
 - ✅ Feedback admin view at `/admin/feedback` (editor-only, 404 for
   everyone else; "Feedback" footer link appears when signed in as editor)
+- ✅ Experience grouped by company: `companies` rows hold the name,
+  domain and logo; each role (`experiences.company_id`) has its own
+  title, dates, description, bullets, skills and media, so an internship
+  and the full-time job that followed show under one employer header.
+  Deleting a company deletes its roles.
 - ✅ Coursework section: expandable course rows (name, number, optional
   semester) with projects nested under each course (`projects.course_id`;
   course projects are excluded from the Projects grid; deleting a course

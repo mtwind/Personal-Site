@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   about,
+  companies,
   contact,
   courses,
   experienceSkills,
@@ -26,6 +27,7 @@ import {
   firstIssue,
   idSchema,
   parseAboutForm,
+  parseCompanyForm,
   parseContactForm,
   parseCourseForm,
   parseExperienceForm,
@@ -154,10 +156,10 @@ export async function saveContact(
  * the search API, Google's favicon service gives a decent mark for free.
  */
 function withLogoFallback<
-  T extends { companyDomain: string | null; companyLogoUrl: string | null },
+  T extends { domain: string | null; logoUrl: string | null },
 >(data: T): T {
-  if (data.companyLogoUrl || !data.companyDomain) return data;
-  return { ...data, companyLogoUrl: companyFaviconUrl(data.companyDomain) };
+  if (data.logoUrl || !data.domain) return data;
+  return { ...data, logoUrl: companyFaviconUrl(data.domain) };
 }
 
 /**
@@ -167,13 +169,63 @@ function withLogoFallback<
  * instead of a URL that is already dead.
  */
 async function withStoredLogo<
-  T extends { companyDomain: string | null; companyLogoUrl: string | null },
+  T extends { domain: string | null; logoUrl: string | null },
 >(data: T): Promise<T> {
-  if (!data.companyLogoUrl) return data;
-  return {
-    ...data,
-    companyLogoUrl: await persistCompanyLogo(data.companyLogoUrl),
-  };
+  if (!data.logoUrl) return data;
+  return { ...data, logoUrl: await persistCompanyLogo(data.logoUrl) };
+}
+
+export async function createCompany(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const parsed = parseCompanyForm(formData);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  return runMutation(async () => {
+    await db
+      .insert(companies)
+      .values(withLogoFallback(await withStoredLogo(parsed.data)));
+  });
+}
+
+export async function updateCompany(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const id = idSchema.safeParse(formData.get("id"));
+  if (!id.success) return { ok: false, error: "Invalid company id" };
+
+  const parsed = parseCompanyForm(formData);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+
+  return runMutation(async () => {
+    await db
+      .update(companies)
+      .set({
+        ...withLogoFallback(await withStoredLogo(parsed.data)),
+        updatedAt: new Date(),
+      })
+      .where(eq(companies.id, id.data));
+  });
+}
+
+/** Deletes the company AND its roles (FK cascade), including their
+ *  media rows and uploaded files. */
+export async function deleteCompany(rawId: string): Promise<ActionResult> {
+  const id = idSchema.safeParse(rawId);
+  if (!id.success) return { ok: false, error: "Invalid company id" };
+
+  return runMutation(async () => {
+    const owned = await db
+      .select({ id: experiences.id })
+      .from(experiences)
+      .where(eq(experiences.companyId, id.data));
+    for (const role of owned) {
+      await deleteOwnedMedia("experience", role.id);
+    }
+    await db.delete(companies).where(eq(companies.id, id.data));
+  });
 }
 
 export async function createExperience(
@@ -187,7 +239,7 @@ export async function createExperience(
   return runMutation(async () => {
     const inserted = await db
       .insert(experiences)
-      .values(withLogoFallback(await withStoredLogo(values)))
+      .values(values)
       .returning({ id: experiences.id });
     await syncSkills("experience", inserted[0].id, skillSelections);
   });
@@ -207,10 +259,7 @@ export async function updateExperience(
   return runMutation(async () => {
     await db
       .update(experiences)
-      .set({
-        ...withLogoFallback(await withStoredLogo(values)),
-        updatedAt: new Date(),
-      })
+      .set({ ...values, updatedAt: new Date() })
       .where(eq(experiences.id, id.data));
     await syncSkills("experience", id.data, skillSelections);
   });

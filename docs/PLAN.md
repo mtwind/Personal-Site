@@ -78,11 +78,17 @@ about
   photo_url         text
   updated_at        timestamptz
 
-experiences
+companies
   id                pk
-  company_name      text
-  company_domain    text          -- from company API, drives logo
-  company_logo_url  text
+  name              text
+  domain            text          -- from company API, drives logo
+  logo_url          text
+  sort_order        int
+  updated_at        timestamptz
+
+experiences                       -- one role at a company
+  id                pk
+  company_id        fk -> companies (cascade)
   title             text
   start_date        date
   end_date          date null      -- null = present
@@ -166,7 +172,7 @@ editors.
 
 ### 4.3 Company search (LinkedIn-style)
 - Autocomplete input → hits our API route → proxies Brandfetch/logo.dev search.
-- Selecting a result stores `company_name`, `company_domain`, `company_logo_url`.
+- Selecting a result stores the company's `name`, `domain`, `logo_url`; roles nest under it.
 - API key kept server-side (never in the client).
 
 ### 4.4 Skill / tech search with icons

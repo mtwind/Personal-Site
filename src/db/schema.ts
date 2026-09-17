@@ -33,23 +33,50 @@ export const about = pgTable("about", {
     .defaultNow(),
 });
 
-export const experiences = pgTable("experiences", {
+/**
+ * An employer. Roles nest under it, so an internship and the full-time
+ * job that followed it read as one entry on the page rather than two
+ * copies of the same company header.
+ */
+export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
-  companyName: text("company_name").notNull(),
-  companyDomain: text("company_domain"),
-  companyLogoUrl: text("company_logo_url"),
-  title: text("title").notNull(),
-  /** One-line description shown on collapsed/preview cards. */
-  headline: text("headline").notNull().default(""),
-  startDate: date("start_date").notNull(),
-  /** Null end date = current position. */
-  endDate: date("end_date"),
-  bullets: jsonb("bullets").$type<string[]>().notNull().default([]),
+  name: text("name").notNull(),
+  /** From the company search; drives the logo and the link. */
+  domain: text("domain"),
+  logoUrl: text("logo_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * One role at a company. Still called an "experience" everywhere the
+ * rest of the site refers to it — media owners, skill links, the
+ * team-matching page's `[[experience:…]]` tokens and `/experience/…`
+ * routes — since each role is the unit those all point at.
+ */
+export const experiences = pgTable(
+  "experiences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    /** One-line description shown on collapsed/preview cards. */
+    headline: text("headline").notNull().default(""),
+    startDate: date("start_date").notNull(),
+    /** Null end date = current position. */
+    endDate: date("end_date"),
+    bullets: jsonb("bullets").$type<string[]>().notNull().default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("experiences_company_idx").on(table.companyId)],
+);
 
 /** College coursework; projects can nest under a course. */
 export const courses = pgTable("courses", {
